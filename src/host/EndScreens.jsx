@@ -114,7 +114,7 @@ export function WinnerScreen({ pub, rm }) {
       <div className="bp-story">
         <RansomHeadline text={solo ? 'LIAR OF THE YEAR' : 'LIARS OF THE YEAR'} />
         <div className="bp-clipping">
-          <div className="bp-paper">Ink &amp; Lies · The Final Edition</div>
+          <div className="bp-paper">Truth Be Told · Black History Month</div>
           {solo ? (
             <p>
               <b>{w?.name}</b> walks free with <b><CountUp value={top} rm={rm} delay={1.6} /> points</b>

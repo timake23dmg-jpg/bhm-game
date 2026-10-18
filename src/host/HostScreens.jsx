@@ -136,8 +136,8 @@ export function LobbyScreen({ pub, code, engine, joinUrl, backend }) {
     <div className="screen lobby">
       <div className="lobby-left">
         <div className="hiring">
-          <h1 className="hiring-title">Now hiring: <span>liars</span></h1>
-          <p className="hiring-sub">No experience needed. Must keep a straight face.</p>
+          <h1 className="hiring-title">Who knows <span>the truth?</span></h1>
+          <p className="hiring-sub">Every question is a true story from Black history. Fake it, then find it.</p>
         </div>
         <div className="join-box">
           {qr && <img className="qr" src={qr} alt={`QR code to join room ${code}`} />}
@@ -197,7 +197,7 @@ export function LobbyScreen({ pub, code, engine, joinUrl, backend }) {
 
         <div className="lobby-start">
           <button className="btn btn-pink btn-xl" disabled={!canStart} onClick={() => engine.startGame()}>
-            Stop the presses — start!
+            Start the game
           </button>
           <span className="hint">
             {canStart ? 'Or the VIP can start from their phone.' : `Need at least ${MIN_PLAYERS} players (3+ recommended).`}
@@ -225,7 +225,7 @@ function VoicePicker() {
           ))}
           <option value={BROWSER_VOICE}>Browser voice (robotic)</option>
         </select>
-        <button type="button" className="btn btn-ghost voice-test" onClick={() => narrate("Hi! I'm your Ink and Lies host. Let's play!", { maxWait: 20000 })}>▶ Test</button>
+        <button type="button" className="btn btn-ghost voice-test" onClick={() => narrate("Hi! I'm your Truth Be Told host. Let's play!", { maxWait: 20000 })}>▶ Test</button>
       </label>
       {ai.text && <span className={`voice-status ${ai.tone}`}>{ai.text}</span>}
     </div>
@@ -261,12 +261,12 @@ export function IntroScreen({ engine }) {
 
 export function RoundTitleScreen({ pub, final = false }) {
   useEffect(() => sfx('drum'), [])
-  const title = final ? 'THE FINAL EDITION' : `ROUND ${pub.round}`
+  const title = final ? 'THE FINAL ROUND' : `ROUND ${pub.round}`
   const sub = final ? 'Triple points!' : pub.round === 2 ? 'Double points!' : 'Lie. Spot. Win.'
   return (
     <div className="screen round-title">
       <div className="fp-spin">
-        <div className="fp-mast"><span>{final ? 'LATE EDITION' : 'MORNING EDITION'}</span><b>Ink &amp; Lies</b><span>EXTRA! EXTRA!</span></div>
+        <div className="fp-mast"><span>{final ? 'THE FINAL ROUND' : 'BLACK HISTORY MONTH'}</span><b>Truth Be Told</b><span>OCTOBER 2026</span></div>
         <h1 className="huge"><span className="swipe">{title}</span></h1>
       </div>
       {pub.multiplier > 1 && (

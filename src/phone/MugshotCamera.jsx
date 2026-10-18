@@ -107,7 +107,7 @@ export default function MugshotCamera({ player, onDone, onSkip }) {
 
   return (
     <div className="phone mugcam">
-      <h2 className="mugcam-title">Step up for your mugshot</h2>
+      <h2 className="mugcam-title">Snap your selfie</h2>
       <p className="mugcam-hint">Face the camera. No smiling. (Smiling is allowed.)</p>
 
       {status === 'taken' ? (

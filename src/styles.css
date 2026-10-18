@@ -1472,3 +1472,157 @@ body, .stage, .host-start, .paper-dots {
   background: #FFF6D6; font-size: 40px; font-weight: 800; white-space: nowrap;
 }
 .crowd-count strong { font-size: 52px; }
+
+/* =====================================================================
+   TRUTH BE TOLD theme (v3, Black History Month). Overrides the Ink & Lies
+   layer above: warm black ground with a faint gold diamond pattern, cream
+   cards with gold offset shadows, gold / green / red accents, woven (kente-
+   inspired) strips on the TV masthead and ticker. Bowlby One headlines,
+   DM Sans for everything else. Delete this block to get Ink & Lies back.
+   ===================================================================== */
+:root {
+  --paper: #13110E;
+  --paper-2: #0A0907;
+  --card: #FFF5DD;
+  --cream: #FFF5DD;
+  --ink: #13110E;
+  --muted: #6B5D45;
+  --line: #D9C9A3;
+  --pink: #D7263D;
+  --pink-soft: #F7D3D8;
+  --red: #D7263D;
+  --mint: #F2B705;
+  --yellow: #F2B705;
+  --gold: #F2B705;
+  --green: #146B45;
+  --sky: #F2B705;
+  --lilac: #E9D9B4;
+  --grey: #D8CDB5;
+  --display: 'Bowlby One', 'Arial Black', sans-serif;
+  --body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'DM Sans', system-ui, sans-serif;
+  --type: 'DM Sans', system-ui, sans-serif;
+  --mast: 'Bowlby One', 'Arial Black', sans-serif;
+  --shadow: 6px 6px 0 var(--gold);
+  --shadow-sm: 4px 4px 0 var(--gold);
+  --kente:
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(19, 17, 14, 0.55) 9px 12px),
+    repeating-linear-gradient(90deg, #F2B705 0 34px, #146B45 34px 46px, #D7263D 46px 70px, #13110E 70px 78px,
+      #F2B705 78px 104px, #13110E 104px 112px, #146B45 112px 140px, #13110E 140px 148px);
+}
+body { color: var(--cream); font-weight: 500; }
+::selection { background: var(--gold); color: var(--ink); }
+body, .stage, .host-start, .paper-dots {
+  background-color: var(--paper);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(242, 183, 5, 0.06) 0 2px, transparent 2px 30px),
+    repeating-linear-gradient(-45deg, rgba(242, 183, 5, 0.06) 0 2px, transparent 2px 30px);
+  background-size: auto;
+  background-position: 0 0;
+}
+.stage-wrap { background: #000; }
+
+/* Light surfaces keep dark text; everything else on the ground is cream. */
+.btn, .sticker, .landing-join, .code-input, .room-tag, .sound-banner, .new-room, .end-confirm, .host-error,
+.join-box, .qr, .settings, .settings-drawer, .rule, .category-card, .question-text, .instruction, .option-card,
+.reveal-card, .author-line, .award-card, .award-title, .final-list, .tag, .room-chip, .field input,
+.avatar-pick, .big-score, .phone-award, .phone-timer, .phone-question, .lie-input, .like-row, .like-btn,
+.mute-btn, .party-tip, .now-playing, .mugcam-open, .detector-note, .crowd-count, .truth-recap strong,
+.winner-score, .vip-tag, .mult-badge, .fp-spin, .score-row, .party-grid {
+  color: var(--ink);
+}
+.btn-pink, .phone-timer.urgent, .big-score.neg, .mute-btn.blocked { color: #fff; }
+
+/* Wordmark: gold block letters with a red and green offset, like the poster. */
+.logo {
+  font-family: var(--display); font-weight: 400; color: var(--gold); letter-spacing: 0.01em;
+  text-shadow: 0.04em 0.04em 0 var(--red), 0.08em 0.08em 0 var(--green); -webkit-text-stroke: 0;
+}
+.logo span { color: var(--cream); font-family: var(--display); font-style: normal; font-size: 1em; padding: 0 0.12em; }
+.tagline { color: var(--cream); border-color: var(--gold); font-family: var(--body); font-style: normal; font-weight: 700; }
+.hint, .demo-note, .waiting p, .music-credit, .hiring-sub, .picker-text, .truth-recap, .audience-count {
+  color: var(--cream); font-family: var(--body); font-style: normal;
+}
+
+/* Headlines on the ground: cream with a red marker band. */
+.huge, .screen-title, .winner-name, .waiting h2, .party-title { color: var(--cream); font-family: var(--display); }
+.screen-title, .huge { background: linear-gradient(transparent 58%, var(--red) 58%, var(--red) 90%, transparent 90%); }
+.fp-spin .huge, .fp-spin .screen-title { color: var(--ink); background: linear-gradient(transparent 58%, var(--gold) 58%, var(--gold) 90%, transparent 90%); }
+.hiring-title { color: var(--cream); }
+.hiring-title span { color: var(--gold); background: none; }
+.swipe { background-image: linear-gradient(var(--gold), var(--gold)); }
+
+/* TV masthead and ticker: dark bars edged with the woven strip. */
+.masthead { background: var(--paper-2); color: var(--cream); border-bottom: 0; }
+.masthead::after { content: ''; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px; background: var(--kente); }
+.masthead-title { font-family: var(--display); font-weight: 400; font-size: 54px; color: var(--gold); }
+.masthead-side { color: var(--cream); font-family: var(--body); }
+.ticker { background: var(--paper-2); color: var(--cream); font-family: var(--body); overflow: visible; }
+.ticker::before { content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 10px; background: var(--kente); }
+.ticker-label { background: var(--green); }
+.ticker-dot { color: var(--gold); }
+
+/* Labels, timer, category cards */
+.category-label { background: var(--green); color: var(--cream); box-shadow: 5px 5px 0 var(--gold); }
+.mult-badge { background: var(--gold); }
+.timer-track { fill: var(--card); }
+.timer-bar { stroke: var(--green); }
+.timer-num { color: var(--ink); }
+.rule-icon { background: var(--green); }
+.picker-text strong { color: var(--gold); }
+.category-card { box-shadow: 10px 10px 0 var(--gold); padding-top: 50px; }
+.category-card::before, .category-card:nth-child(2)::before, .category-card:nth-child(3)::before {
+  content: ''; height: 18px; padding: 0; background: var(--kente);
+}
+.fp-spin { border-color: var(--gold); box-shadow: 12px 12px 0 var(--red); }
+.fp-mast { background: var(--green); color: var(--cream); border-bottom: 5px solid var(--gold); }
+.fp-mast b { font-family: var(--display); font-weight: 400; font-size: 48px; color: var(--gold); }
+
+/* Question, options, reveal */
+.question-text, .phone-question { font-family: var(--body); font-weight: 700; transform: none; box-shadow: 8px 8px 0 var(--red); }
+.question-text.small { box-shadow: 6px 6px 0 var(--red); }
+.option-card { font-family: var(--body); font-weight: 800; box-shadow: 6px 6px 0 var(--gold); }
+.option-card:nth-child(3n) { font-family: var(--body); font-weight: 800; box-shadow: 6px 6px 0 var(--red); }
+.option-card:nth-child(3n+2) { box-shadow: 6px 6px 0 var(--green); }
+.reveal-card { box-shadow: 8px 8px 0 var(--gold); }
+.truth-card.glow { background: var(--gold); }
+.reveal-stage.dim::before { background: rgba(10, 9, 7, 0.65); }
+.stamp { color: var(--red); border-color: var(--red); background: rgba(255, 245, 221, 0.85); mix-blend-mode: normal; }
+.stamp small { font-family: var(--body); font-weight: 700; }
+.stamp.decoy { color: var(--ink); border-color: var(--ink); background: rgba(242, 183, 5, 0.85); }
+.truth-banner { background: var(--card); color: var(--green); border-color: var(--green); }
+.truth-banner.grey { background: var(--card); color: var(--muted); border-color: var(--muted); }
+.points { color: var(--gold); }
+.points.neg, .points.gold { color: #FF6B7D; }
+.author-line { background: var(--gold); font-family: var(--body); }
+.picked-by { color: var(--cream); font-family: var(--body); font-style: normal; }
+.splats i { background: rgba(242, 183, 5, 0.7); mix-blend-mode: normal; }
+
+/* Scores, winner, awards */
+.scoreboard .lineup {
+  background: repeating-linear-gradient(to bottom, rgba(242, 183, 5, 0.12) 0 3px, transparent 3px 60px), #221D17;
+  border-color: var(--gold);
+}
+.winner-score, .award-title { background: var(--gold); }
+.count { color: var(--gold); }
+.spotlight { background: radial-gradient(ellipse at top, rgba(242, 183, 5, 0.3), transparent 65%); }
+.bp-paper { font-family: var(--display); font-weight: 400; }
+.bp-clipping p { font-family: var(--body); }
+
+/* Lobby */
+.join-box { transform: none; box-shadow: 8px 8px 0 var(--gold); }
+.join-url { font-family: var(--body); font-weight: 700; }
+.room-code { color: var(--red); font-family: var(--display); }
+.vip-tag { background: var(--gold); }
+.settings input[type='checkbox'] { accent-color: var(--green); }
+.vacancy-frame { border-color: rgba(255, 245, 221, 0.35); color: rgba(255, 245, 221, 0.35); }
+.vacancy-label { background: rgba(255, 245, 221, 0.14); color: var(--cream); }
+.crowd-count { background: var(--card); border-color: var(--gold); }
+
+/* Phone */
+.phone-header { background: var(--green); color: var(--cream); box-shadow: 0 5px 0 var(--gold); }
+.phone-header .room-chip { background: var(--card); color: var(--ink); }
+.lie-input { background: #fff; font-family: var(--body); font-weight: 600; }
+.like-row.chosen, .like-btn.on, .big-score, .phone-award, .now-playing, .tag, .avatar-pick.selected, .mute-btn { background: var(--gold); }
+.field { color: var(--cream); font-family: var(--body); }
+.party-tip { font-family: var(--body); font-style: normal; }

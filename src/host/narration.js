@@ -24,8 +24,8 @@ function seeded(seed) {
 // Ordered roughly by when they're first needed, so the earliest are ready first.
 
 const L = {
-  welcome: ['Welcome to Ink and Lies! Grab your phones and join with the room code on screen.'],
-  intro: ['Welcome to Ink and Lies! Write a lie that sounds true, spot the real story, and fool your friends for points.'],
+  welcome: ['Welcome to Truth Be Told! Grab your phones and join with the room code on screen.'],
+  intro: ['Welcome to Truth Be Told! Write a lie that sounds true, spot the real story, and fool your friends for points.'],
   roundOne: ['Round one! Let the lying begin.', "Round one! Let's see who's a natural liar."],
   randomCategory: ['Picking a random category.'],
   lowestPicks: ['Lowest score picks.'],
@@ -53,7 +53,7 @@ const L = {
   neverTrust: ['Never trust them again.', 'What a liar.'],
   awards: ['Biggest Liar!', 'Truth Seeker!', 'Crowd Favourite!', 'Most Gullible!'],
   awardQuips: ['Never lend them money.', 'Impossible to fool.', 'The people have spoken.', 'Bless.'],
-  thanks: ['Thanks for playing Ink and Lies! Play again, or head back to the lobby.'],
+  thanks: ['Thanks for playing Truth Be Told! Play again, or head back to the lobby.'],
 }
 export const THANKS_LINE = L.thanks[0]
 export const FIXED_LINES = Object.values(L).flat()
