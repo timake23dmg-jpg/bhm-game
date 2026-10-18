@@ -1,0 +1,660 @@
+[
+  {
+    "id": "bh001",
+    "category": "Civil Rights",
+    "prompt": "In 1955, Rosa Parks refused to give up her seat on a city ______ in Montgomery, Alabama.",
+    "answer": "bus",
+    "alternateSpellings": [
+      "buses"
+    ],
+    "suggestedLies": [
+      "tram",
+      "train",
+      "ferry",
+      "cab"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh002",
+    "category": "Civil Rights",
+    "prompt": "The Montgomery Bus Boycott lasted about ______ days.",
+    "answer": "381",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "120",
+      "250",
+      "60",
+      "500"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh003",
+    "category": "Civil Rights",
+    "prompt": "Martin Luther King Jr. gave his 'I Have a Dream' speech in ______, D.C., in 1963.",
+    "answer": "Washington",
+    "alternateSpellings": [
+      "Washington DC"
+    ],
+    "suggestedLies": [
+      "Montgomery",
+      "Selma",
+      "Chicago",
+      "Atlanta"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh004",
+    "category": "Civil Rights",
+    "prompt": "The 1960 Greensboro sit-ins began at a Woolworth's ______ counter.",
+    "answer": "lunch",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "soda",
+      "coffee",
+      "diner",
+      "snack"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh005",
+    "category": "Music",
+    "prompt": "B.B. King famously named his electric guitar '______'.",
+    "answer": "Lucille",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Betsy",
+      "Mabel",
+      "Rosie",
+      "Ruby"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh006",
+    "category": "Music",
+    "prompt": "Motown Records was founded in 1959 in ______.",
+    "answer": "Detroit",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Chicago",
+      "Memphis",
+      "Nashville",
+      "Philadelphia"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh007",
+    "category": "Music",
+    "prompt": "Otis Redding wrote and first recorded the soul classic '______', later a hit for Aretha Franklin.",
+    "answer": "Respect",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Feeling Good",
+      "Stand By Me",
+      "Proud Mary",
+      "Soul Man"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh008",
+    "category": "Music",
+    "prompt": "Louis Armstrong was nicknamed '______'.",
+    "answer": "Satchmo",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Sweet Pops",
+      "Big Louie",
+      "Trumpet King",
+      "Dixie Jack"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh009",
+    "category": "Science",
+    "prompt": "Surgeon Charles Drew pioneered the large-scale storage of ______ in blood banks.",
+    "answer": "blood plasma",
+    "alternateSpellings": [
+      "plasma"
+    ],
+    "suggestedLies": [
+      "bone marrow",
+      "saliva",
+      "lymph",
+      "tissue"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh010",
+    "category": "Inventions",
+    "prompt": "Garrett Morgan patented an early three-position ______ in 1923.",
+    "answer": "traffic signal",
+    "alternateSpellings": [
+      "traffic light"
+    ],
+    "suggestedLies": [
+      "parking meter",
+      "street lamp",
+      "crossing gate",
+      "road sign"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh011",
+    "category": "Inventions",
+    "prompt": "Lewis Latimer improved the design of the ______ filament for electric lamps.",
+    "answer": "carbon",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "tungsten",
+      "copper",
+      "glass",
+      "silver"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh012",
+    "category": "Space",
+    "prompt": "Mae Jemison became the first Black woman in space in 1992, aboard the space shuttle ______.",
+    "answer": "Endeavour",
+    "alternateSpellings": [
+      "Endeavor"
+    ],
+    "suggestedLies": [
+      "Discovery",
+      "Atlantis",
+      "Columbia",
+      "Apollo"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh013",
+    "category": "Space",
+    "prompt": "Katherine Johnson's orbital calculations helped send astronauts to the ______ and back.",
+    "answer": "Moon",
+    "alternateSpellings": [
+      "moon"
+    ],
+    "suggestedLies": [
+      "Mars",
+      "Sun",
+      "Venus",
+      "Jupiter"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh014",
+    "category": "Space",
+    "prompt": "Guion Bluford became the first African American in space in 1983, aboard the shuttle ______.",
+    "answer": "Challenger",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Columbia",
+      "Discovery",
+      "Atlantis",
+      "Endeavour"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh015",
+    "category": "Sport",
+    "prompt": "Jesse Owens won four gold medals at the 1936 Olympics in ______.",
+    "answer": "Berlin",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Paris",
+      "Rome",
+      "London",
+      "Moscow"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh016",
+    "category": "Sport",
+    "prompt": "In 1947, Jackie Robinson broke baseball's colour line playing for the ______.",
+    "answer": "Brooklyn Dodgers",
+    "alternateSpellings": [
+      "Dodgers"
+    ],
+    "suggestedLies": [
+      "Yankees",
+      "Giants",
+      "Cubs",
+      "Red Sox"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh017",
+    "category": "Sport",
+    "prompt": "In 1964, Muhammad Ali won the heavyweight title by beating Sonny ______.",
+    "answer": "Liston",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Frazier",
+      "Foreman",
+      "Holmes",
+      "Norton"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh018",
+    "category": "Books",
+    "prompt": "Maya Angelou's 1969 memoir 'I Know Why the ______ Sings' became a landmark of American literature.",
+    "answer": "Caged Bird",
+    "alternateSpellings": [
+      "caged bird"
+    ],
+    "suggestedLies": [
+      "Wild Horse",
+      "Golden Lark",
+      "Silent Dove",
+      "Free Crow"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh019",
+    "category": "Books",
+    "prompt": "Toni Morrison won the Nobel Prize in Literature in ______.",
+    "answer": "1993",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1988",
+      "1998",
+      "2003",
+      "1979"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh020",
+    "category": "Politics",
+    "prompt": "Shirley Chisholm became the first Black woman elected to the US ______ of Representatives in 1968.",
+    "answer": "House",
+    "alternateSpellings": [
+      "House of Representatives"
+    ],
+    "suggestedLies": [
+      "Senate",
+      "Cabinet",
+      "Supreme Court",
+      "State Assembly"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh021",
+    "category": "Politics",
+    "prompt": "Thurgood Marshall became the first Black justice of the US ______ in 1967.",
+    "answer": "Supreme Court",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Court of Appeals",
+      "Senate",
+      "Cabinet",
+      "Tax Court"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh022",
+    "category": "Politics",
+    "prompt": "Barack Obama, the first Black US president, was earlier a senator from the state of ______.",
+    "answer": "Illinois",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Hawaii",
+      "Ohio",
+      "Georgia",
+      "Virginia"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh023",
+    "category": "History",
+    "prompt": "Nelson Mandela walked free from prison in South Africa in ______.",
+    "answer": "1990",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1985",
+      "1994",
+      "1978",
+      "1999"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh024",
+    "category": "Business",
+    "prompt": "Madam C. J. Walker built a fortune selling ______ products to Black women.",
+    "answer": "hair care",
+    "alternateSpellings": [
+      "haircare"
+    ],
+    "suggestedLies": [
+      "perfume",
+      "soap",
+      "tobacco",
+      "jewellery"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh025",
+    "category": "Art",
+    "prompt": "Jean-Michel Basquiat rose from street graffiti in ______ to fame as a painter.",
+    "answer": "New York",
+    "alternateSpellings": [
+      "New York City",
+      "NYC"
+    ],
+    "suggestedLies": [
+      "Paris",
+      "Los Angeles",
+      "Chicago",
+      "Miami"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh026",
+    "category": "Film & TV",
+    "prompt": "Sidney Poitier became the first Black man to win the Academy Award for Best ______ in 1964.",
+    "answer": "Actor",
+    "alternateSpellings": [
+      "Actor in a Leading Role"
+    ],
+    "suggestedLies": [
+      "Director",
+      "Screenplay",
+      "Supporting Actress",
+      "Score"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh027",
+    "category": "Film & TV",
+    "prompt": "Hattie McDaniel became the first Black person to win an Oscar, for her role in '______'.",
+    "answer": "Gone with the Wind",
+    "alternateSpellings": [
+      "Gone With the Wind"
+    ],
+    "suggestedLies": [
+      "Show Boat",
+      "Imitation of Life",
+      "Casablanca",
+      "The Wizard of Oz"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh028",
+    "category": "History",
+    "prompt": "Juneteenth marks the day in 1865 when enslaved people in ______ learned they were free.",
+    "answer": "Texas",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Louisiana",
+      "Georgia",
+      "Alabama",
+      "Virginia"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh029",
+    "category": "History",
+    "prompt": "Black History Month began in the US as 'Negro History Week' in ______.",
+    "answer": "1926",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1919",
+      "1936",
+      "1941",
+      "1955"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh030",
+    "category": "History",
+    "prompt": "Mansa Musa made a famous pilgrimage to ______ in 1324.",
+    "answer": "Mecca",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Cairo",
+      "Baghdad",
+      "Jerusalem",
+      "Timbuktu"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh031",
+    "category": "Medicine",
+    "prompt": "Dr Patricia Bath invented a laser device used to treat ______.",
+    "answer": "cataracts",
+    "alternateSpellings": [
+      "cataract"
+    ],
+    "suggestedLies": [
+      "glaucoma",
+      "retinal tears",
+      "eye strain",
+      "astigmatism"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh032",
+    "category": "Inventions",
+    "prompt": "Frederick McKinley Jones invented a refrigeration system for ______.",
+    "answer": "trucks",
+    "alternateSpellings": [
+      "lorries",
+      "truck"
+    ],
+    "suggestedLies": [
+      "ships",
+      "trains",
+      "aeroplanes",
+      "warehouses"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bh033",
+    "category": "Science",
+    "prompt": "George Washington Carver developed hundreds of uses for the ______.",
+    "answer": "peanut",
+    "alternateSpellings": [
+      "peanuts"
+    ],
+    "suggestedLies": [
+      "soybean",
+      "sweet potato",
+      "cotton",
+      "maize"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu001",
+    "category": "Black British History",
+    "prompt": "In June 1948, HMT Empire Windrush docked at ______ in Essex.",
+    "answer": "Tilbury",
+    "alternateSpellings": [
+      "Tilbury Docks"
+    ],
+    "suggestedLies": [
+      "Southampton",
+      "Harwich",
+      "Dover",
+      "Liverpool"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu002",
+    "category": "Black British History",
+    "prompt": "During the Crimean War, Mary Seacole ran the 'British ______' to care for soldiers.",
+    "answer": "Hotel",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Infirmary",
+      "Tea Room",
+      "Canteen",
+      "Mission"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu003",
+    "category": "Black British History",
+    "prompt": "Walter Tull, one of the first Black officers in the British Army, had been a professional ______ player.",
+    "answer": "football",
+    "alternateSpellings": [
+      "footballer"
+    ],
+    "suggestedLies": [
+      "cricket",
+      "rugby",
+      "tennis",
+      "snooker"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu004",
+    "category": "Black British History",
+    "prompt": "In 1963, a bus boycott in ______ challenged a company's refusal to hire Black and Asian crews.",
+    "answer": "Bristol",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Birmingham",
+      "Leeds",
+      "Manchester",
+      "Cardiff"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu005",
+    "category": "Black British History",
+    "prompt": "In 1987, Diane Abbott became the first Black woman elected to the House of ______.",
+    "answer": "Commons",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Lords",
+      "Keys",
+      "Burgesses",
+      "Delegates"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu006",
+    "category": "Black British History",
+    "prompt": "Black History Month was first celebrated in the UK in ______.",
+    "answer": "1987",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1976",
+      "1992",
+      "1968",
+      "2001"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu007",
+    "category": "Black British History",
+    "prompt": "Claudia Jones organised an indoor Caribbean carnival in 1959 that helped inspire the ______ Carnival.",
+    "answer": "Notting Hill",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "Brixton",
+      "Hackney",
+      "Leeds West Indian",
+      "St Pauls"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bu008",
+    "category": "Black British History",
+    "prompt": "Olaudah Equiano's 1789 ______ became a bestseller and fuelled the campaign against the slave trade.",
+    "answer": "autobiography",
+    "alternateSpellings": [
+      "memoir"
+    ],
+    "suggestedLies": [
+      "poem",
+      "sermon",
+      "pamphlet",
+      "stage play"
+    ],
+    "isFinal": false
+  },
+  {
+    "id": "bf001",
+    "category": "Final Fakeout",
+    "prompt": "Led by Kwame Nkrumah, Ghana won independence from Britain in ______.",
+    "answer": "1957",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1960",
+      "1948",
+      "1964",
+      "1952"
+    ],
+    "isFinal": true
+  },
+  {
+    "id": "bf002",
+    "category": "Final Fakeout",
+    "prompt": "The Haitian Revolution led to Haiti's independence from France in ______.",
+    "answer": "1804",
+    "alternateSpellings": [],
+    "suggestedLies": [
+      "1791",
+      "1815",
+      "1776",
+      "1820"
+    ],
+    "isFinal": true
+  },
+  {
+    "id": "bf003",
+    "category": "Final Fakeout",
+    "prompt": "Journalist Ida B. Wells campaigned against lynching in her Memphis newspaper, '______'.",
+    "answer": "Free Speech",
+    "alternateSpellings": [
+      "Free Speech and Headlight"
+    ],
+    "suggestedLies": [
+      "Daily Crusader",
+      "The Freedman",
+      "Tennessee Sentinel",
+      "Memphis Herald"
+    ],
+    "isFinal": true
+  }
+]

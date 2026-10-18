@@ -1,0 +1,10 @@
+# Netlify config. For drag-and-drop or CLI deploys of a local build, the
+# Supabase URL/key come from your local .env at build time. For Git-based
+# builds on Netlify, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY under
+# Site configuration -> Environment variables.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
