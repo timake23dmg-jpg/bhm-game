@@ -9,8 +9,10 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+// fileURLToPath decodes the path, so folder names with spaces work.
+const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = join(root, 'dist')
 // npm is a .cmd shim on Windows and needs a shell; git must NOT go through one
 // (the shell would split arguments like the commit message).
