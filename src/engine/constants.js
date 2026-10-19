@@ -4,11 +4,11 @@
 export const TIMERS = {
   INTRO: 8000,
   ROUND_TITLE: 3000,
-  CATEGORY_PICK: 10000,
+  CATEGORY_PICK: 7000, // the category slot machine: spins, lands, then a moment to read it
   QUESTION: 4000, // time to read the question before the answers appear
   LIE_ENTRY: 45000,
   LIE_ENTRY_FINAL: 60000,
-  PICK_TRUTH: 15000,
+  PICK_TRUTH: 30000, // time to answer; ends early once everyone has answered
   SCOREBOARD: 6000,
   FINAL_TITLE: 4000,
   WINNER: 8000,
@@ -18,6 +18,7 @@ export const TIMERS = {
 }
 
 // How long each award card stays on screen, and all of them together.
+export const SPIN_LAND_MS = 4200 // when the category reel stops (TV and phones stay in sync)
 export const awardDuration = (award) => (award?.key === 'biggestLiar' ? TIMERS.WANTED_CARD : TIMERS.AWARD_CARD)
 export const awardsDuration = (awards) => (awards || []).reduce((t, a) => t + awardDuration(a), 0)
 

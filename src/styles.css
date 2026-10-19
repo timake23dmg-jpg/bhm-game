@@ -1682,3 +1682,53 @@ body, .stage, .host-start, .paper-dots {
 .btn-option .opt-text { flex: 1; }
 .btn-option.chosen { background: var(--gold); margin-top: 12px; }
 .phone-question.small { font-size: 16px; padding: 10px 14px; margin: 4px 0 12px; }
+
+/* ---------------------------------------------------------- Category slot machine */
+.category-pick { gap: 40px; }
+.slot-machine {
+  position: relative; padding: 34px 40px; border-radius: 36px;
+  background: var(--green); border: 6px solid var(--ink); box-shadow: 14px 14px 0 var(--gold);
+}
+.slot-machine::before { content: ''; position: absolute; inset: 0 0 auto; height: 18px; border-radius: 30px 30px 0 0; background: var(--kente); }
+.slot-lights { position: absolute; inset: -14px 30px auto; display: flex; justify-content: space-between; }
+.slot-lights span {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--gold); border: 3px solid var(--ink);
+  animation: slot-blink 0.6s steps(2, jump-none) infinite;
+}
+@keyframes slot-blink { 50% { background: var(--red); } }
+.slot-machine:has(.slot-landed) .slot-lights span { animation-duration: 0.25s; }
+.slot { width: 1200px; }
+.slot-window {
+  position: relative; overflow: hidden; border-radius: 22px; border: 5px solid var(--ink);
+  background: linear-gradient(var(--ink), #2a251d 25%, #2a251d 75%, var(--ink));
+}
+.slot-rows { position: absolute; left: 0; right: 0; }
+.reel-row {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: 60px; color: var(--cream); text-transform: uppercase; letter-spacing: 1px; padding: 0 70px;
+  white-space: nowrap; will-change: transform;
+}
+.slot-spinning .reel-row { filter: blur(0.6px); }
+.slot-line {
+  position: absolute; left: 0; right: 0; pointer-events: none;
+  border-top: 5px solid var(--gold); border-bottom: 5px solid var(--gold);
+  background: rgba(242, 183, 5, 0.12);
+}
+.slot-line::before, .slot-line::after {
+  content: ''; position: absolute; top: 50%; translate: 0 -50%;
+  border: 22px solid transparent;
+}
+.slot-line::before { left: 0; border-left-color: var(--red); }
+.slot-line::after { right: 0; border-right-color: var(--red); }
+.reel-win { color: var(--gold); animation: slot-win 0.5s ease-out; }
+@keyframes slot-win { 0% { scale: 1; } 40% { scale: 1.18; } 100% { scale: 1; } }
+
+/* Phone reel */
+.slot.slot-phone { width: min(100%, 340px); }
+.slot-phone .slot-window { border-width: 4px; border-radius: 16px; box-shadow: 6px 6px 0 var(--gold); }
+.slot-phone .reel-row { font-size: 21px; padding: 0 26px; }
+.slot-phone .slot-line { border-width: 3px; }
+.slot-phone .slot-line::before, .slot-phone .slot-line::after { border-width: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  .slot-lights span, .reel-win { animation: none; }
+}

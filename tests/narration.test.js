@@ -23,14 +23,12 @@ test('listNames', () => {
 })
 
 test('a line for every round phase, all prepared ahead', () => {
-  const base = { players, round: 1, questionIndex: 0, pickerId: 'b', question: { category: 'Animals', prompt: 'A ____ can sleep for 3 years.' } }
+  const base = { players, round: 1, questionIndex: 0, question: { category: 'Animals', prompt: 'A ____ can sleep for 3 years.' } }
   for (const phase of ['INTRO', 'ROUND_TITLE', 'FINAL_TITLE', 'CATEGORY_PICK', 'PICK_TRUTH', 'SCOREBOARD']) {
     const line = phaseLine({ ...base, phase })
     assert.ok(line.length, phase)
     assert.ok(allPrepared(line), `${phase}: ${line}`)
   }
-  assert.match(phaseLine({ ...base, phase: 'CATEGORY_PICK' }).join(' '), /Ben/)
-  assert.match(phaseLine({ ...base, phase: 'CATEGORY_PICK', pickerId: 'c' }).join(' '), /Lowest score.*Cat/)
   assert.equal(questionLine({ ...base, phase: 'QUESTION' }), 'Animals. A ____ can sleep for 3 years.')
   assert.match(phaseLine({ ...base, phase: 'ROUND_TITLE', round: 2 })[0], /double/i)
   assert.match(phaseLine({ ...base, phase: 'SCOREBOARD' }).join(' '), /Ana/)

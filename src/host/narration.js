@@ -27,8 +27,7 @@ const L = {
   welcome: ['Welcome to Truth Be Told! Grab your phones and join with the room code on screen.'],
   intro: ['Welcome to Truth Be Told! Every question is a true story from Black history. Tap the right answer, and the faster you are, the more you score.'],
   roundOne: ["Round one! Let's see what you know.", 'Round one! Fingers ready.'],
-  randomCategory: ['Picking a random category.'],
-  lowestPicks: ['Lowest score picks.'],
+  spin: ['Spin the wheel! Where will it land?', "Let's spin for a category!", 'Round and round it goes…'],
   pickTruth: ['Which one is true? Quick!', 'Four answers. One truth. Go!', 'Find the true story. The clock is ticking.'],
   tenSeconds: ['Ten seconds left!', 'Ten seconds. Tick tock!'],
   truthIntro: ['And the truth is…', 'The real answer is…'],
@@ -53,7 +52,6 @@ export const FIXED_LINES = Object.values(L).flat()
 
 // The few lines said with each player's name.
 const P = {
-  pickCategory: (n) => `${n}, pick a category!`,
   leads: (n) => `${n} is in the lead!`,
   fastest: (n) => `${n} was the fastest!`,
   wellDone: (n) => `Well done, ${n}!`,
@@ -85,7 +83,7 @@ export function phaseLine(pub) {
     case 'FINAL_TITLE':
       return [pick(L.final)]
     case 'CATEGORY_PICK':
-      return categoryPickLine(pub)
+      return [pick(L.spin)]
     case 'PICK_TRUTH':
       return [pick(L.pickTruth)]
     case 'SCOREBOARD':
@@ -93,15 +91,6 @@ export function phaseLine(pub) {
     default:
       return []
   }
-}
-
-function categoryPickLine(pub) {
-  const picker = nameOf(pub, pub.pickerId)
-  if (!picker) return L.randomCategory
-  const players = gamePlayers(pub)
-  const me = players.find((p) => p.id === pub.pickerId)
-  const lowest = players.length > 2 && players.some((p) => p.score > 0) && players.every((p) => p.score >= (me?.score ?? 0))
-  return lowest ? [L.lowestPicks[0], P.pickCategory(picker)] : [P.pickCategory(picker)]
 }
 
 // The question, read aloud only if the voice gets it ready in time.

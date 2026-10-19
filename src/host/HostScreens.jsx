@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import QRCode from 'qrcode'
-import { Avatar, Mugshot, Prompt, TimerRing, Wordmark, colorFor, displayCategory, fmt, signed, useNow } from '../components/shared.jsx'
+import { Avatar, Mugshot, Prompt, SlotReel, TimerRing, Wordmark, colorFor, displayCategory, fmt, signed, useNow } from '../components/shared.jsx'
 import { sfx, setVolumes, getVolumes } from '../lib/audio.js'
 import { narrate } from '../lib/narrator.js'
 import { AUTO, BROWSER_VOICE, VOICE_GROUPS, getAiVoiceState, setVoiceChoice, subscribeAiVoice } from '../lib/aiVoice.js'
 import { revealLines, winnerLines, awardLine, THANKS_LINE } from './narration.js'
-import { TIMERS, MIN_PLAYERS, MAX_PLAYERS, SHORT_GAME_MIN_PLAYERS, LETTERS } from '../engine/constants.js'
+import { TIMERS, MIN_PLAYERS, MAX_PLAYERS, SHORT_GAME_MIN_PLAYERS, LETTERS, SPIN_LAND_MS } from '../engine/constants.js'
+import { CATEGORIES } from '../data/categories.js'
 
 const spring = { type: 'spring', stiffness: 420, damping: 22 }
 // Sticker tilts (degrees) for the cartoon theme. Animated cards get them via
@@ -264,33 +265,34 @@ export function RoundTitleScreen({ pub, final = false }) {
 
 // ---------------------------------------------------------- CATEGORY_PICK
 
-export function CategoryPickScreen({ pub, serverNow }) {
-  const players = byId(pub.players)
-  const picker = players[pub.pickerId]
-  useEffect(() => {
-    sfx('flick')
-    const t = setTimeout(() => sfx('ding'), 600)
-    return () => clearTimeout(t)
-  }, [])
+export function CategoryPickScreen({ pub, serverNow, rm }) {
+  const fire = useConfetti(rm)
+  // Scaled with the phase (tests run the clock faster).
+  const landMs = (SPIN_LAND_MS / TIMERS.CATEGORY_PICK) * (pub.deadline ? pub.deadline - pub.startedAt : TIMERS.CATEGORY_PICK)
+  const [landed, setLanded] = useState(false)
+  useEffect(() => { sfx('riser') }, [])
+  const land = () => {
+    setLanded(true)
+    sfx('ding')
+    fire({ particleCount: 90, spread: 70, origin: { y: 0.55 } })
+  }
   return (
     <div className="screen category-pick">
       <TopBar pub={pub} serverNow={serverNow} label={`Question ${pub.questionIndex + 1} of ${pub.questionsInRound}`} />
-      <div className="picker">
-        {picker ? (
-          <>
-            <Avatar player={picker} size={120} />
-            <div className="picker-text"><strong>{picker.name}</strong> is picking a category…</div>
-          </>
-        ) : (
-          <div className="picker-text">Picking a random category…</div>
-        )}
-      </div>
-      <div className="category-cards">
-        {(pub.categoryOptions || []).map((c, i) => (
-          <motion.div key={c} className="category-card bob" style={{ animationDelay: `${1 + i * 0.4}s` }} initial={{ y: 400, opacity: 0, rotate: 0 }} animate={{ y: 0, opacity: 1, rotate: TILTS[i] * 1.5 }} transition={{ ...spring, delay: i * 0.1 }}>
-            {displayCategory(c)}
-          </motion.div>
-        ))}
+      <div className="picker-text">{landed ? 'The category is…' : 'Spinning for a category…'}</div>
+      <div className="slot-machine">
+        <div className="slot-lights" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <span key={i} style={{ animationDelay: `${i * 0.08}s` }} />)}</div>
+        <SlotReel
+          items={CATEGORIES}
+          target={pub.category}
+          seed={pub.questionNo}
+          startedAt={pub.startedAt}
+          landMs={landMs}
+          serverNow={serverNow}
+          rowHeight={120}
+          onTick={() => sfx('tick')}
+          onLand={land}
+        />
       </div>
     </div>
   )

@@ -47,7 +47,6 @@ export function initialState(settings = {}) {
     settings: { ...DEFAULT_SETTINGS, ...settings },
     shortGameLocked: false,
     scores: {}, // playerId -> { score, stats }
-    pickedThisRound: [],
     current: null,
     prevScores: {},
     lastDeltas: {},
@@ -233,10 +232,7 @@ export class HostEngine {
         })),
     }
     if (c) {
-      if (s.phase === 'CATEGORY_PICK') {
-        pub.pickerId = c.pickerId
-        pub.categoryOptions = c.categoryOptions
-      }
+      if (s.phase === 'CATEGORY_PICK') pub.category = c.category
       if (QUESTION_PHASES.includes(s.phase) && c.question) {
         pub.question = { category: c.question.category, prompt: c.question.prompt, isFinal: !!c.question.isFinal }
       }
@@ -332,14 +328,6 @@ export class HostEngine {
       case 'skipIntro':
         if (s.phase === 'INTRO' && isVip) await this.advance()
         break
-      case 'pickCategory': {
-        const cat = row.payload?.category
-        if (s.phase === 'CATEGORY_PICK' && row.playerId === s.current?.pickerId && s.current.categoryOptions.includes(cat)) {
-          s.current.category = cat
-          await this.advance()
-        }
-        break
-      }
       case 'playAgain':
         if ((s.phase === 'AWARDS' || s.phase === 'WINNER') && isVip) await this.goStart()
         break
@@ -423,7 +411,7 @@ export class HostEngine {
     switch (s.phase) {
       case 'INTRO': return this.goRoundTitle(1)
       case 'ROUND_TITLE': return this.goCategoryPick()
-      case 'CATEGORY_PICK': return this.goQuestion(s.current.category ?? shuffle(s.current.categoryOptions)[0], false)
+      case 'CATEGORY_PICK': return this.goQuestion(s.current.category, false)
       case 'FINAL_TITLE': return this.goQuestion(null, true)
       case 'QUESTION': return this.goPickTruth()
       case 'LIE_ENTRY': return this.goPickTruth()
@@ -451,7 +439,6 @@ export class HostEngine {
     s.shortGameLocked = !!s.settings.shortGame && players.length >= SHORT_GAME_MIN_PLAYERS
     s.round = 1
     s.questionIndex = 0
-    s.pickedThisRound = []
     s.current = null
     s.prevScores = {}
     s.lastDeltas = {}
@@ -465,7 +452,6 @@ export class HostEngine {
     const s = this.s
     s.round = round
     s.questionIndex = 0
-    s.pickedThisRound = []
     s.phase = 'ROUND_TITLE'
     await this.publish(TIMERS.ROUND_TITLE)
   }
@@ -474,8 +460,6 @@ export class HostEngine {
     this.s.questionNo += 1
     this.s.current = {
       category: null,
-      categoryOptions: [],
-      pickerId: null,
       question: null,
       lies: {},
       options: [],
@@ -485,21 +469,12 @@ export class HostEngine {
     }
   }
 
-  choosePicker() {
-    const s = this.s
-    let candidates = this.activePlayerIds().filter((id) => !s.pickedThisRound.includes(id))
-    if (!candidates.length) candidates = this.activePlayerIds()
-    if (!candidates.length) return null
-    const low = Math.min(...candidates.map((id) => this.scoreOf(id)))
-    const pickerId = shuffle(candidates.filter((id) => this.scoreOf(id) === low))[0]
-    s.pickedThisRound.push(pickerId)
-    return pickerId
-  }
-
+  // The category slot machine: the engine picks a random category that still
+  // has fresh questions; the screens spin the reel and land on it.
   async goCategoryPick() {
     const s = this.s
-    const categoryOptions = await this.t.drawCategories(this.code, this.history?.recent() ?? [])
-    this.newQuestion({ categoryOptions, pickerId: this.choosePicker() })
+    const options = await this.t.drawCategories(this.code, this.history?.recent() ?? [])
+    this.newQuestion({ category: shuffle(options)[0] ?? null })
     s.phase = 'CATEGORY_PICK'
     await this.publish(TIMERS.CATEGORY_PICK)
   }

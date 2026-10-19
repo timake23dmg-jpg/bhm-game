@@ -123,10 +123,7 @@ async function main() {
   for (;;) {
     const s = await until((x) => ['CATEGORY_PICK', 'FINAL_TITLE', 'WINNER'].includes(x.phase))
     if (s.phase === 'WINNER') break
-    if (s.phase === 'CATEGORY_PICK') {
-      const picker = players.find((p) => p.id === s.pickerId)
-      ok(await picker.sb.from('commands').insert({ game_code: code, player_id: picker.id, cmd: 'pickCategory', payload: { category: s.categoryOptions[0] } }))
-    }
+    if (s.phase === 'CATEGORY_PICK') assert.ok(s.category, 'the category spinner has a target')
     // Quiz: straight from the question to four answers.
     const pick = await until((x) => x.phase === 'PICK_TRUTH')
     const qn = pick.questionNo

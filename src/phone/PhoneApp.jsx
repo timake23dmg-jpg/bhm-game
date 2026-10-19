@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { createPlayerTransport } from '../lib/transport/index.js'
 import { rankPlayers } from '../engine/hostEngine.js'
-import { MAX_PLAYERS, LETTERS } from '../engine/constants.js'
-import { AVATARS, Avatar, MuteButton, Prompt, Wordmark, fmt, signed, useNow } from '../components/shared.jsx'
+import { MAX_PLAYERS, LETTERS, TIMERS, SPIN_LAND_MS } from '../engine/constants.js'
+import { CATEGORIES } from '../data/categories.js'
+import { AVATARS, Avatar, MuteButton, Prompt, SlotReel, Wordmark, fmt, signed, useNow } from '../components/shared.jsx'
 import { setLobbyMusic, primeLobbyMusic, getMusicState, subscribeMusic } from '../lib/lobbyMusic.js'
 import MugshotCamera from './MugshotCamera.jsx'
 
@@ -364,20 +365,7 @@ function PhoneView({ transport, code, me, state }) {
       return <Waiting title="Look at the screen" sub={state.phase === 'FINAL_TITLE' ? 'The Final Round — triple points!' : `Round ${state.round}${state.round === 2 ? ' — double points!' : ''}`} />
 
     case 'CATEGORY_PICK':
-      if (state.pickerId === me.id) {
-        return (
-          <div className="choose">
-            <Countdown transport={transport} state={state} />
-            <h2>Pick a category</h2>
-            <div className="bottom-actions stack">
-              {state.categoryOptions.map((c) => (
-                <button key={c} className="btn btn-big btn-block" onClick={() => { haptic(); send('pickCategory', { category: c }) }}>{c}</button>
-              ))}
-            </div>
-          </div>
-        )
-      }
-      return <Waiting title={`${byId[state.pickerId]?.name ?? 'Someone'} is picking…`} sub="Look at the screen" />
+      return <CategorySpin transport={transport} state={state} />
 
     case 'QUESTION':
       return (
@@ -517,6 +505,27 @@ function PickTruth({ transport, code, me, state, mine, updateMine }) {
           <span className="opt-text">{options[i].text}</span>
         </div>
       )}
+    </Waiting>
+  )
+}
+
+// The category slot machine, in step with the TV.
+function CategorySpin({ transport, state }) {
+  const landMs = (SPIN_LAND_MS / TIMERS.CATEGORY_PICK) * (state.deadline ? state.deadline - state.startedAt : TIMERS.CATEGORY_PICK)
+  const [landed, setLanded] = useState(false)
+  return (
+    <Waiting title={landed ? 'The category is…' : '🎰 Spinning…'} sub={landed ? 'Get ready for the question!' : 'Watch the screen'}>
+      <SlotReel
+        items={CATEGORIES}
+        target={state.category}
+        seed={state.questionNo}
+        startedAt={state.startedAt}
+        landMs={landMs}
+        serverNow={transport.serverNow}
+        rowHeight={56}
+        className="slot-phone"
+        onLand={() => { haptic(); setLanded(true) }}
+      />
     </Waiting>
   )
 }

@@ -6,6 +6,7 @@ import { HostEngine } from '../src/engine/hostEngine.js'
 import { LocalServer } from '../src/lib/transport/localServer.js'
 import { createLocalHostTransport } from '../src/lib/transport/localTransport.js'
 import { quizPoints, QUIZ_SCORES, TIMERS } from '../src/engine/constants.js'
+import { CATEGORIES } from '../src/data/categories.js'
 
 const questions = JSON.parse(readFileSync(new URL('../src/data/questions.json', import.meta.url), 'utf8'))
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -30,16 +31,17 @@ async function until(engine, predicate, timeout = 5000) {
   return engine.publicState
 }
 
-// Picks a category if asked, then waits for the answers to appear.
+// Waits through the category spin for the answers to appear.
 async function toAnswers(engine, server, code, players, timeout = 20000) {
   const s = await until(engine, (x) => ['CATEGORY_PICK', 'FINAL_TITLE', 'WINNER'].includes(x.phase), timeout)
   if (s.phase === 'WINNER') return null
-  if (s.phase === 'CATEGORY_PICK') {
-    const picker = players.find((p) => p.id === s.pickerId)
-    server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-  }
   return until(engine, (x) => x.phase === 'PICK_TRUTH', timeout)
 }
+
+test('the spinner list has every regular category', () => {
+  const cats = new Set(questions.filter((q) => !q.isFinal).map((q) => q.category))
+  assert.deepEqual([...cats].sort(), [...CATEGORIES].sort())
+})
 
 test('quiz points: faster correct answers score more, by round', () => {
   assert.equal(quizPoints(1, 0), 1000)
@@ -72,16 +74,14 @@ test('full game: 4 answers, speed scoring, wrong answers cost points, awards', a
     const s = await until(engine, (x) => ['CATEGORY_PICK', 'FINAL_TITLE', 'WINNER'].includes(x.phase), 20000)
     if (s.phase === 'WINNER') break
     if (s.phase === 'CATEGORY_PICK') {
-      assert.equal(s.categoryOptions.length, 3)
-      const picker = players.find((p) => p.id === s.pickerId)
-      server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[1] })
+      assert.ok(CATEGORIES.includes(s.category), `the spinner lands on a known category: ${s.category}`)
     }
     const q = await until(engine, (x) => x.phase === 'QUESTION')
     const qn = q.questionNo
     const secret = engine.s.current.question
     assert.ok(!seen.has(secret.id), 'no question repeats within a game')
     seen.add(secret.id)
-    if (s.phase === 'CATEGORY_PICK') assert.equal(secret.category, s.categoryOptions[1])
+    if (s.phase === 'CATEGORY_PICK') assert.equal(secret.category, s.category, 'the question is from the category the reel landed on')
     assert.equal(q.question.answer, undefined, 'answer must not be in public state')
 
     const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH') // straight from the question: no lie writing
@@ -150,13 +150,12 @@ test('real-time timers: answering ends early once everyone is in', async () => {
   const { server, engine, code, players } = await setup(['Ana', 'Ben'], { timeScale: 1 })
   await engine.startGame()
   await engine.skip() // INTRO -> ROUND_TITLE (3 s)
-  const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK')
-  const picker = players.find((p) => p.id === s.pickerId)
-  server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
+  await until(engine, (x) => x.phase === 'CATEGORY_PICK')
+  await engine.enqueue(() => engine.advance()) // fast-forward the 7 s category spin
   const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 8000) // QUESTION is 4 s
   const t0 = Date.now()
   for (const p of players) server.submitPick(p.userId, code, pick.questionNo, pick.options[0].id)
-  await until(engine, (x) => x.phase === 'REVEAL', 1500) // not the 15 s timer
+  await until(engine, (x) => x.phase === 'REVEAL', 1500) // not the 45 s timer
   assert.ok(Date.now() - t0 < 1500)
   const correct = engine.s.current.reveal.correct
   if (correct.length) assert.ok(engine.s.current.reveal.fastest[0].points > 900, 'an instant answer is worth nearly full points')
@@ -168,10 +167,8 @@ test('disconnected players are not waited for', async () => {
   engine.online = new Set([players[0].id, players[1].id]) // Cat's phone dropped
   await engine.startGame()
   await engine.skip()
-  const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK')
-  assert.notEqual(s.pickerId, players[2].id, 'offline players are not chosen to pick')
-  const picker = players.find((p) => p.id === s.pickerId)
-  server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
+  await until(engine, (x) => x.phase === 'CATEGORY_PICK')
+  await engine.enqueue(() => engine.advance()) // fast-forward the 7 s category spin
   const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 8000)
   server.submitPick(players[0].userId, code, pick.questionNo, pick.options[0].id)
   server.submitPick(players[1].userId, code, pick.questionNo, pick.options[1].id)
