@@ -41,7 +41,7 @@ function Landing() {
     <main className="landing">
       <MuteButton className="floating" />
       <Wordmark />
-      <p className="tagline">Lie. Spot. Win.</p>
+      <p className="tagline">Know it. Tap it. Win it.</p>
       <form
         className="landing-join"
         onSubmit={(e) => {

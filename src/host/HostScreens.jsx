@@ -7,8 +7,7 @@ import { sfx, setVolumes, getVolumes } from '../lib/audio.js'
 import { narrate } from '../lib/narrator.js'
 import { AUTO, BROWSER_VOICE, VOICE_GROUPS, getAiVoiceState, setVoiceChoice, subscribeAiVoice } from '../lib/aiVoice.js'
 import { revealLines, winnerLines, awardLine, THANKS_LINE } from './narration.js'
-import { revealContext } from './revealContext.js'
-import { TIMERS, MIN_PLAYERS, MAX_PLAYERS, SHORT_GAME_MIN_PLAYERS } from '../engine/constants.js'
+import { TIMERS, MIN_PLAYERS, MAX_PLAYERS, SHORT_GAME_MIN_PLAYERS, LETTERS } from '../engine/constants.js'
 
 const spring = { type: 'spring', stiffness: 420, damping: 22 }
 // Sticker tilts (degrees) for the cartoon theme. Animated cards get them via
@@ -90,22 +89,6 @@ function AvatarRow({ pub, doneIds = [], detectorIds = [] }) {
       ))}
     </div>
   )
-}
-
-// Points that tick up from zero.
-function Tally({ value, rm }) {
-  const [n, setN] = useState(rm ? value : 0)
-  useEffect(() => {
-    if (rm) return
-    const start = Date.now()
-    const id = setInterval(() => {
-      const k = Math.min(1, (Date.now() - start) / 600)
-      setN(Math.round(value * k))
-      if (k >= 1) clearInterval(id)
-    }, 30)
-    return () => clearInterval(id)
-  }, [value])
-  return <>{fmt(n)}</>
 }
 
 // --------------------------------------------------------------- LOBBY
@@ -236,16 +219,16 @@ function VoicePicker() {
 
 export function IntroScreen({ engine }) {
   const rules = [
-    ['No. 1', 'Write a believable lie'],
-    ['No. 2', 'Spot the real story'],
-    ['No. 3', 'Fool friends for points'],
+    ['No. 1', 'Read the true story'],
+    ['No. 2', 'Tap the right answer'],
+    ['No. 3', 'Faster = more points'],
   ]
   return (
     <div className="screen intro">
       <motion.h1 className="logo" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring}>
-        Ink <span>&amp;</span> Lies
+        Truth <span>Be</span> Told
       </motion.h1>
-      <p className="tagline big">All the lies that fit to print.</p>
+      <p className="tagline big">Four answers. One true story. Wrong answers cost points.</p>
       <div className="rules">
         {rules.map(([icon, text], i) => (
           <motion.div key={text} className="rule" initial={{ y: 60, opacity: 0, rotate: 0 }} animate={{ y: 0, opacity: 1, rotate: TILTS[i] }} transition={{ ...spring, delay: 0.4 + i * 0.15 }}>
@@ -262,7 +245,7 @@ export function IntroScreen({ engine }) {
 export function RoundTitleScreen({ pub, final = false }) {
   useEffect(() => sfx('drum'), [])
   const title = final ? 'THE FINAL ROUND' : `ROUND ${pub.round}`
-  const sub = final ? 'Triple points!' : pub.round === 2 ? 'Double points!' : 'Lie. Spot. Win.'
+  const sub = final ? 'Triple points!' : pub.round === 2 ? 'Double points!' : 'Know it. Tap it. Win it.'
   return (
     <div className="screen round-title">
       <div className="fp-spin">
@@ -354,27 +337,6 @@ export function QuestionScreen({ pub, serverNow, rm }) {
   )
 }
 
-// -------------------------------------------------------------- LIE_ENTRY
-
-export function LieEntryScreen({ pub, serverNow }) {
-  const count = pub.submitted?.length ?? 0
-  const prev = useRef(count)
-  useEffect(() => {
-    if (count > prev.current) sfx('pop')
-    prev.current = count
-  }, [count])
-  return (
-    <div className="screen lie-entry">
-      <TopBar pub={pub} serverNow={serverNow} />
-      <div className="question-body">
-        <p className="question-text"><Prompt text={pub.question.prompt} /></p>
-        <p className="instruction">Type a believable lie on your phone!</p>
-      </div>
-      <AvatarRow pub={pub} doneIds={pub.submitted} />
-    </div>
-  )
-}
-
 // ------------------------------------------------------------- PICK_TRUTH
 
 export function PickTruthScreen({ pub, serverNow, rm }) {
@@ -384,7 +346,6 @@ export function PickTruthScreen({ pub, serverNow, rm }) {
     if (count > prev.current) sfx('pop')
     prev.current = count
   }, [count])
-  const order = useMemo(() => pub.options.map((_, i) => i).sort(() => Math.random() - 0.5), [pub.options.length])
   useEffect(() => {
     const ids = pub.options.map((_, i) => setTimeout(() => sfx('bubble'), 80 * i))
     return () => ids.forEach(clearTimeout)
@@ -393,17 +354,17 @@ export function PickTruthScreen({ pub, serverNow, rm }) {
     <div className="screen pick-truth">
       <TopBar pub={pub} serverNow={serverNow} />
       <p className="question-text small"><Prompt text={pub.question.prompt} /></p>
-      <div className={`options-grid ${pub.options.length > 6 ? 'dense' : ''}`}>
+      <div className="options-grid quiz">
         {pub.options.map((o, i) => (
           <motion.div
             key={o.id}
-            className="option-card float"
-            style={{ animationDelay: `${-i * 0.9}s` }}
-            initial={rm ? { opacity: 0, rotate: i % 2 ? 1 : -1 } : { scale: 0.6, opacity: 0, rotate: 0 }}
-            animate={{ scale: 1, opacity: 1, rotate: i % 2 ? 1 : -1 }}
-            transition={rm ? { duration: 0.2 } : { ...spring, delay: order.indexOf(i) * 0.08 }}
+            className="option-card"
+            initial={rm ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={rm ? { duration: 0.2 } : { ...spring, delay: i * 0.08 }}
           >
-            {o.text}
+            <span className="opt-letter">{LETTERS[i]}</span>
+            <span className="opt-text">{o.text}</span>
           </motion.div>
         ))}
       </div>
@@ -414,187 +375,100 @@ export function PickTruthScreen({ pub, serverNow, rm }) {
 
 // ----------------------------------------------------------------- REVEAL
 
+// The answer counts grow in, then the truth lights up, then the fastest
+// correct answers are shown.
 export function RevealScreen({ pub, serverNow, rm }) {
-  const now = useNow(serverNow, 50)
+  const now = useNow(serverNow, 100)
   const elapsed = now - pub.startedAt
-  const steps = pub.reveal.steps
-  let index = -1
-  steps.forEach((s, i) => {
-    if (elapsed >= s.at) index = i
-  })
-  const step = steps[index]
+  const r = pub.reveal
+  const showTruth = elapsed >= r.truthAt
+  const showFastest = elapsed >= r.fastestAt
   const players = byId(pub.players)
-  // Each author's nose before this lie: their total so far, minus what this
-  // lie and the ones still to come add.
-  const noseFrom = {}
-  if (step) {
-    for (const a of step.authors) {
-      const toCome = steps.slice(index).reduce((n, s) => n + (s.kind === 'lie' && s.authors.includes(a) ? s.pickers.length : 0), 0)
-      noseFrom[a] = Math.max(0, (players[a]?.fooled || 0) - toCome)
+  const fire = useConfetti(rm)
+  const narrating = pub.settings?.tts !== false
+  const lines = useMemo(() => (narrating ? revealLines(r, players) : { start: [], verdict: [] }), [])
+  useEffect(() => {
+    if (!r.nobodyFound) sfx('drumroll')
+    if (lines.start.length) narrate(lines.start)
+  }, [])
+  useEffect(() => {
+    if (!showTruth) return
+    if (lines.verdict.length) narrate(lines.verdict, { queue: !r.nobodyFound })
+    if (r.nobodyFound) {
+      sfx('sadTrombone')
+    } else {
+      sfx('fanfare')
+      fire({ colors: ['#F2B705', '#146B45', '#D7263D', '#FFF5DD'] })
     }
-  }
+  }, [showTruth])
+
+  const max = Math.max(1, ...Object.values(r.counts))
+  const total = gamePlayers(pub).length
   return (
-    <div className="screen reveal">
+    <div className="screen reveal quiz-reveal">
       <p className="question-text small"><Prompt text={pub.question.prompt} /></p>
-      <AnimatePresence mode="wait">
-        {step && (
-          <RevealStep
-            key={step.optionId}
-            step={step}
-            elapsed={elapsed - step.at}
-            players={players}
-            noseFrom={noseFrom}
-            nobodyFound={pub.reveal.nobodyFound}
-            context={revealContext(pub)}
-            rm={rm}
-            narrating={pub.settings?.tts !== false}
-          />
+      <div className="answer-bars">
+        {pub.options.map((o, i) => {
+          const isTruth = o.id === r.truthId
+          const n = r.counts[o.id] ?? 0
+          const state = showTruth ? (isTruth ? 'is-truth' : 'is-wrong') : ''
+          return (
+            <div key={o.id} className={`answer-bar ${state}`}>
+              <motion.span
+                className="answer-fill"
+                initial={{ width: rm ? `${(n / max) * 100}%` : '0%' }}
+                animate={{ width: `${(n / max) * 100}%` }}
+                transition={{ duration: rm ? 0 : 1.2, delay: rm ? 0 : 0.2 + i * 0.1, ease: [0.2, 0.7, 0.3, 1] }}
+              />
+              <span className="opt-letter">{LETTERS[i]}</span>
+              <span className="answer-text">{o.text}</span>
+              {showTruth && isTruth && (
+                <motion.span className="true-stamp" initial={rm ? { opacity: 0 } : { scale: 3, opacity: 0, rotate: -8 }} animate={{ scale: 1, opacity: 1, rotate: -4 }} transition={{ duration: 0.28 }}>
+                  TRUE STORY
+                </motion.span>
+              )}
+              <span className="answer-count">{n}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="fastest">
+        {showFastest && (
+          <motion.div initial={rm ? { opacity: 0 } : { y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={rm ? { duration: 0.2 } : spring}>
+            {r.nobodyFound ? (
+              <div className="fastest-title">Nobody found the truth this time!</div>
+            ) : (
+              <>
+                <div className="fastest-title">
+                  <strong>{r.correct.length}</strong> of {total} found the truth · Fastest fingers
+                </div>
+                <div className="fastest-list">
+                  {r.fastest.map((f, i) => players[f.id] && (
+                    <motion.div key={f.id} className="fastest-chip" initial={rm ? { opacity: 0 } : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...spring, delay: rm ? 0 : i * 0.12 }}>
+                      <span className="fastest-rank">{i + 1}</span>
+                      <Avatar player={players[f.id]} size={64} />
+                      <span className="chip-name">{players[f.id].name}</span>
+                      <span className="fastest-time">{(f.ms / 1000).toFixed(1)}s</span>
+                      <span className="points">+{fmt(f.points)}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+          </motion.div>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   )
 }
 
-function RevealStep({ step, elapsed, players, noseFrom, nobodyFound, context, rm, narrating }) {
-  const fire = useConfetti(rm)
-  const isTruth = step.kind === 'truth'
-  const verdictAt = isTruth ? 1000 : 1500
-  const showVerdict = elapsed >= verdictAt
-  const showAuthor = elapsed >= verdictAt + 400
-  const played = useRef({})
-  const once = (key, fn) => {
-    if (!played.current[key]) {
-      played.current[key] = true
-      fn()
-    }
-  }
-
-  const lines = useMemo(() => (narrating ? revealLines(step, players, nobodyFound, context) : {}), [step.optionId])
-  useEffect(() => {
-    once('start', () => {
-      if (isTruth) nobodyFound || sfx('drumroll')
-      else sfx('riser')
-      if (lines.start) narrate(lines.start)
-    })
-    if (showVerdict) {
-      once('verdict', () => {
-        if (lines.verdict) narrate(lines.verdict, { queue: isTruth && !nobodyFound })
-        if (isTruth && nobodyFound) {
-          sfx('sadTrombone')
-          fire({ colors: ['#777', '#999', '#555'], particleCount: 60, gravity: 1.6 })
-        } else if (isTruth) {
-          sfx('fanfare')
-          fire({ colors: ['#3DDC97', '#FFFFFF', '#FFC940'] })
-        } else {
-          sfx('buzzer')
-        }
-      })
-    }
-    if (showAuthor && !isTruth && step.kind === 'lie') once('author', () => sfx('chaChing'))
-  }, [showVerdict, showAuthor])
-
-  // The author's Pinocchio nose grows a notch for each person this lie fooled.
-  const liarNose = (id) => {
-    const from = noseFrom[id] ?? 0
-    const fools = from + (step.kind === 'lie' ? step.pickers.length : 0)
-    return fools > 0 ? { from, fools, size: 140, delay: 0.3, gap: 330, max: 1.3, flip: true } : null
-  }
-  const allPickers = step.pickers.map((id) => players[id]).filter(Boolean)
-  const pickers = allPickers.slice(0, 12)
-  const morePickers = allPickers.length - pickers.length
-  const authors = step.authors.map((id) => players[id]).filter(Boolean)
-  const cardClass = isTruth ? (showVerdict ? (nobodyFound ? 'truth-card grey' : 'truth-card glow') : 'dimmed-card') : 'lie-card'
-
-  return (
-    <motion.div
-      className={`reveal-stage ${isTruth && !showVerdict ? 'dim' : ''} ${showVerdict && !rm ? (isTruth ? 'jolt' : 'shake') : ''}`}
-      initial={rm ? { opacity: 0 } : { scale: 0.5, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={rm ? { opacity: 0 } : { x: -300, opacity: 0 }}
-      transition={rm ? { duration: 0.2 } : spring}
-    >
-      {isTruth && showVerdict && (
-        <motion.div className={`truth-banner ${nobodyFound ? 'grey' : ''}`} initial={rm ? { opacity: 0 } : { scale: 3, opacity: 0, rotate: -8 }} animate={{ scale: 1, opacity: 1, rotate: -3 }} transition={{ duration: 0.28, ease: [0.5, 0, 0.75, 0] }}>
-          {nobodyFound ? 'Nobody found the truth!' : 'TRUE STORY'}
-        </motion.div>
-      )}
-      <div className={`reveal-card ${cardClass}`}>
-        {step.text}
-        {!isTruth && showVerdict && step.kind === 'lie' && !rm && (
-          <span className="splats" aria-hidden="true"><i /><i /><i /><i /></span>
-        )}
-        {!isTruth && showVerdict && (
-          <motion.div className={`stamp ${step.kind === 'decoy' ? 'decoy' : ''}`} initial={rm ? { opacity: 0, rotate: 10 } : { scale: 3, opacity: 0, rotate: 10 }} animate={{ scale: 1, opacity: 1, rotate: 10 }} transition={{ duration: 0.25 }}>
-            {step.kind === 'decoy' ? 'HOUSE LIE!' : 'FAKE NEWS!'}
-            <small>{step.kind === 'decoy' ? 'nobody wrote it' : "it's a lie"}</small>
-          </motion.div>
-        )}
-      </div>
-
-      <div className="reveal-pickers">
-        {pickers.length > 0 && <span className="picked-by">{isTruth ? 'found by' : 'picked by'}</span>}
-        {pickers.map((p, i) => (
-          <motion.div
-            key={p.id}
-            className="picker-drop"
-            initial={rm ? { opacity: 0 } : { y: -200, opacity: 0 }}
-            animate={isTruth && showVerdict && !rm ? { y: [0, -30, 0], opacity: 1 } : { y: 0, opacity: 1 }}
-            transition={{ delay: isTruth && showVerdict ? i * 0.1 : 0.3 + i * 0.12, ...(isTruth && showVerdict ? { duration: 0.5 } : spring) }}
-          >
-            {!isTruth && showVerdict && (
-              <motion.span className="fooled-bubble" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={spring}>
-                {step.kind === 'decoy' ? 'oops!' : 'fooled!'}
-              </motion.span>
-            )}
-            <Avatar player={p} size={96} />
-            <span className="chip-name">{p.name}</span>
-            {showVerdict && step.deltas[p.id] != null && (
-              <motion.span className={`points ${step.deltas[p.id] < 0 ? 'neg' : ''}`} initial={{ y: 0, opacity: 0 }} animate={{ y: -20, opacity: 1 }}>
-                {signed(step.deltas[p.id])}
-              </motion.span>
-            )}
-          </motion.div>
-        ))}
-        {morePickers > 0 && <span className="audience-pickers">+{morePickers} more</span>}
-        {step.audienceCount > 0 && <span className="audience-pickers">👀 +{step.audienceCount} audience</span>}
-      </div>
-
-      {!isTruth && showAuthor && (
-        <motion.div className="author-line" initial={rm ? { opacity: 0, rotate: 1.5 } : { rotateY: 95, opacity: 0, rotate: 1.5 }} animate={{ rotateY: 0, opacity: 1, rotate: 1.5 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.3, 1] }}>
-          {step.kind === 'decoy' ? (
-            <span>A house lie: nobody wrote it.</span>
-          ) : (
-            <>
-              {authors.map((a, i) => (
-                <span key={a.id} className="author">
-                  {i > 0 && <span>&amp;</span>}
-                  <Avatar player={a} size={96} nose={liarNose(a.id)} /> {a.name}
-                </span>
-              ))}
-              <span>{step.bought?.length ? 'bought this lie!' : 'wrote this!'}</span>
-              {step.bought?.length > 0 && <span className="bought-tag">💸 Lie for me</span>}
-              <motion.span className="points gold" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-                +<Tally value={step.deltas[authors[0]?.id] ?? 0} rm={rm} />{authors.length > 1 ? ' each' : ''}
-              </motion.span>
-            </>
-          )}
-        </motion.div>
-      )}
-    </motion.div>
-  )
-}
-
 // ------------------------------------------------------------- SCOREBOARD
-
-// How long each player's nose was on the last scoreboard this TV showed.
-const noseSeen = new Map()
 
 export function ScoreboardScreen({ pub, rm }) {
   const [settled, setSettled] = useState(rm)
   const players = gamePlayers(pub)
   const prev = pub.scoreboard?.prev || {}
   const deltas = pub.scoreboard?.deltas || {}
-  const charges = pub.scoreboard?.charges || {}
   useEffect(() => {
     const t = setTimeout(() => setSettled(true), 900)
     players.slice(0, CROWD).forEach((_, i) => setTimeout(() => sfx('blip'), 150 * i))
@@ -606,14 +480,9 @@ export function ScoreboardScreen({ pub, rm }) {
   // The line-up: crown and tears appear once the new scores have settled.
   const st = settled ? standings(pub) : standings({ ...pub, phase: 'LOBBY' })
   const width = sorted.length > 6 ? 170 : sorted.length > 4 ? 210 : 240
-  // Noses grow from where they were on the last scoreboard.
-  const [noseFrom] = useState(() => Object.fromEntries(players.map((p) => [p.id, noseSeen.get(p.id) ?? 0])))
-  useEffect(() => {
-    for (const p of players) noseSeen.set(p.id, p.fooled || 0)
-  }, [])
   return (
     <div className="screen scoreboard">
-      <h2 className="screen-title">The usual suspects</h2>
+      <h2 className="screen-title">Leaderboard</h2>
       {pub.truth && <p className="truth-recap">The truth: <strong>{pub.truth}</strong> ✓</p>}
       <LayoutGroup>
         <div className="lineup">
@@ -625,7 +494,6 @@ export function ScoreboardScreen({ pub, rm }) {
                 flash={0.15 + i * 0.15}
                 crown={st.crown(p)}
                 tears={st.tears(p)}
-                nose={p.fooled > 0 ? { from: noseFrom[p.id], fools: p.fooled, delay: 1 + i * 0.2, max: 0.8 } : null}
                 tag={`#${i + 1}`}
                 tagTone={st.crown(p) ? 'gold' : st.tears(p) ? 'blue' : 'plain'}
                 footer={
@@ -633,7 +501,6 @@ export function ScoreboardScreen({ pub, rm }) {
                     <span className="score-num">{fmt(scoreOf(p))}</span>
                     <span className={`score-delta ${(deltas[p.id] ?? 0) < 0 ? 'neg' : ''}`}>
                       {deltas[p.id] ? signed(deltas[p.id]) : ''}
-                      {charges[p.id] > 0 && <small className="lie-charge">💸 −{fmt(charges[p.id])} for lies</small>}
                     </span>
                   </div>
                 }

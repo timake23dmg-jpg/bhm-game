@@ -1,4 +1,5 @@
-// The Fakeout state machine. Runs in the host (TV) tab, which acts as the
+// The Truth Be Told state machine (a speed quiz: each question shows the truth
+// and three wrong answers; faster correct answers score more). Runs in the host (TV) tab, which acts as the
 // game's server: it holds the full secret state, publishes a filtered public
 // state for phones, and advances phases on timers or when everyone is in.
 //
@@ -7,10 +8,10 @@
 // demo server, or a test harness.
 
 import {
-  TIMERS, REVEAL_TIMING, SCORES, AWARDS, MIN_PLAYERS, MIN_OPTIONS, MAX_OPTIONS, awardsDuration,
-  SHORT_GAME_MIN_PLAYERS, questionsInRound,
+  TIMERS, QUIZ_SCORES, AWARDS, MIN_PLAYERS, OPTIONS_PER_QUESTION, awardsDuration,
+  SHORT_GAME_MIN_PLAYERS, questionsInRound, quizPoints,
 } from './constants.js'
-import { normalize, matchesTruth, lieCost } from '../lib/rules.js'
+import { normalize, matchesTruth } from '../lib/rules.js'
 
 const DEFAULT_SETTINGS = {
   shortGame: false,
@@ -30,7 +31,10 @@ export function shuffle(list) {
   return a
 }
 
-const blankStats = () => ({ fooled: 0, liePoints: 0, truths: 0, likes: 0, gotFooled: 0, lieBuys: 0, lifelineUsed: false })
+const blankStats = () => ({
+  truths: 0, wrong: 0, correctMs: 0, streak: 0, bestStreak: 0, lifelineUsed: false,
+  fooled: 0, liePoints: 0, lieBuys: 0, // lie mode only; always 0 in the quiz
+})
 
 export function initialState(settings = {}) {
   return {
@@ -221,6 +225,7 @@ export class HostEngine {
           isAudience: !!p.isAudience,
           score: p.isAudience ? 0 : scoreFor(p.id),
           lieBuys: s.scores[p.id]?.stats.lieBuys ?? 0,
+          streak: s.scores[p.id]?.stats.streak ?? 0,
           lifelineUsed: !!s.scores[p.id]?.stats.lifelineUsed,
           fooled: s.scores[p.id]?.stats.fooled ?? 0,
           liePoints: s.scores[p.id]?.stats.liePoints ?? 0,
@@ -357,11 +362,20 @@ export class HostEngine {
     const c = this.s.current
     if (this.s.phase !== 'PICK_TRUTH' || !c || row.questionNo !== this.s.questionNo) return
     if (c.picks[row.playerId]) return
-    const option = c.options.find((o) => o.id === row.optionId)
-    if (!option || option.authors.includes(row.playerId)) return
+    if (!c.options.some((o) => o.id === row.optionId)) return
     c.picks[row.playerId] = row.optionId
+    this.recordPickTime(row)
     this.markDirty()
     await this.checkEarly()
+  }
+
+  // How long after the answers appeared this pick came in (server clock).
+  recordPickTime(row) {
+    const c = this.s.current
+    c.pickTimes ||= {}
+    if (c.pickTimes[row.playerId] != null) return
+    const start = c.pickStart ?? this.s.startedAt
+    c.pickTimes[row.playerId] = row.at != null && start != null ? Math.max(0, row.at - start) : null
   }
 
   // Truth Detectors used this question (each player gets one per game).
@@ -411,7 +425,7 @@ export class HostEngine {
       case 'ROUND_TITLE': return this.goCategoryPick()
       case 'CATEGORY_PICK': return this.goQuestion(s.current.category ?? shuffle(s.current.categoryOptions)[0], false)
       case 'FINAL_TITLE': return this.goQuestion(null, true)
-      case 'QUESTION': return this.goLieEntry()
+      case 'QUESTION': return this.goPickTruth()
       case 'LIE_ENTRY': return this.goPickTruth()
       case 'PICK_TRUTH': return this.goReveal()
       case 'REVEAL': return this.goScoreboard()
@@ -501,138 +515,92 @@ export class HostEngine {
     await this.publish(TIMERS.QUESTION)
   }
 
-  async goLieEntry() {
-    const s = this.s
-    s.phase = 'LIE_ENTRY'
-    await this.publish(s.current.question.isFinal ? TIMERS.LIE_ENTRY_FINAL : TIMERS.LIE_ENTRY)
-  }
-
+  // The truth plus three wrong answers from the question's own list, shuffled.
   buildOptions() {
-    const c = this.s.current
-    const q = c.question
-    const players = new Set(this.gamePlayers().map((p) => p.id))
-    const groups = new Map()
-    for (const [pid, text] of Object.entries(c.lies)) {
-      if (!players.has(pid)) continue
+    const q = this.s.current.question
+    const seen = new Set([normalize(q.answer)])
+    const wrong = []
+    for (const text of shuffle(q.suggestedLies || [])) {
       const key = normalize(text)
-      if (!groups.has(key)) groups.set(key, { text, authors: [] })
-      groups.get(key).authors.push(pid)
+      if (seen.has(key) || matchesTruth(text, q)) continue
+      seen.add(key)
+      wrong.push({ text, authors: [], isTruth: false, isDecoy: true })
+      if (wrong.length === OPTIONS_PER_QUESTION - 1) break
     }
-    const handedTo = (pid, key) => (c.handouts?.[pid] || []).some((t) => normalize(t) === key)
-    const lies = [...groups.entries()].map(([key, g]) => ({
-      text: g.text, authors: g.authors, isTruth: false, isDecoy: false,
-      bought: g.authors.filter((a) => handedTo(a, key)),
-    }))
-    const need = Math.max(0, MIN_OPTIONS - 1 - lies.length)
-    const decoys = shuffle(q.suggestedLies || [])
-      .filter((d) => !groups.has(normalize(d)) && !matchesTruth(d, q))
-      .slice(0, need)
-      .map((text) => ({ text, authors: [], isTruth: false, isDecoy: true }))
     const truth = { text: q.answer, authors: [], isTruth: true, isDecoy: false }
-    // Keep lies people bought first, then sample the rest so the board stays readable.
-    const bought = lies.filter((l) => l.bought.length)
-    const rest = shuffle([...lies.filter((l) => !l.bought.length), ...decoys])
-    const chosen = [...bought, ...rest].slice(0, MAX_OPTIONS - 1)
-    return shuffle([...chosen, truth]).map((o, i) => ({ id: `o${i + 1}`, ...o }))
-  }
-
-  // Every "Lie for me" handed out this question is paid for (the first per
-  // game is free). The charge lands with the reveal's score changes.
-  chargeLiePurchases(handouts) {
-    const c = this.s.current
-    c.handouts = handouts
-    c.charges = {}
-    for (const [pid, texts] of Object.entries(handouts)) {
-      const stats = this.s.scores[pid]?.stats
-      if (!stats || !texts.length) continue
-      const cost = lieCost(stats.lieBuys || 0, texts.length)
-      stats.lieBuys = (stats.lieBuys || 0) + texts.length
-      if (cost) c.charges[pid] = cost
-    }
+    return shuffle([...wrong, truth]).map((o, i) => ({ id: `o${i + 1}`, ...o }))
   }
 
   async goPickTruth() {
     const s = this.s
-    const rows = await this.t.fetchRoundRows(this.code, s.questionNo)
-    for (const l of rows.lies) if (!s.current.lies[l.playerId]) s.current.lies[l.playerId] = l.text
-    this.chargeLiePurchases(rows.handouts || {})
     s.current.options = this.buildOptions()
     s.current.picks = {}
+    s.current.pickTimes = {}
+    s.current.pickStart = null
     s.phase = 'PICK_TRUTH'
     await this.publish(TIMERS.PICK_TRUTH)
+    s.current.pickStart = s.startedAt
   }
 
-  computeReveal(likes) {
+  // Scores the question. Returns the public reveal: how many picked each
+  // answer, who found the truth, the fastest correct answers, and everyone's
+  // points for this question.
+  computeReveal() {
     const s = this.s
     const c = s.current
-    const m = s.round - 1
+    const m = Math.min(2, s.round - 1)
     const audience = new Set(this.players.filter((p) => p.isAudience).map((p) => p.id))
     const scored = new Set(this.gamePlayers().map((p) => p.id))
-    const stats = (id) => s.scores[id]?.stats
-    const pickersOf = (optionId) => Object.entries(c.picks).filter(([, o]) => o === optionId).map(([pid]) => pid)
-
-    const lieSteps = []
-    let truthStep = null
-    for (const o of c.options) {
-      const all = pickersOf(o.id)
-      const pickers = all.filter((id) => scored.has(id))
-      const audienceCount = all.filter((id) => audience.has(id)).length
-      const deltas = {}
-      if (o.isTruth) {
-        for (const id of pickers) {
-          deltas[id] = SCORES.truth[m]
-          stats(id).truths++
-        }
-        const detected = (c.lifelines || []).filter((id) => pickers.includes(id))
-        truthStep = { optionId: o.id, text: o.text, kind: 'truth', authors: [], pickers, audienceCount, deltas, detected }
+    const truth = c.options.find((o) => o.isTruth)
+    const windowMs = TIMERS.PICK_TRUTH * this.timeScale
+    const counts = Object.fromEntries(c.options.map((o) => [o.id, 0]))
+    const audienceCounts = { ...counts }
+    const deltas = {}
+    const correct = []
+    for (const [pid, optionId] of Object.entries(c.picks)) {
+      if (audience.has(pid)) {
+        audienceCounts[optionId] = (audienceCounts[optionId] || 0) + 1
         continue
       }
-      if (!all.length) continue // lies nobody picked are skipped
-      if (o.isDecoy) {
-        for (const id of pickers) {
-          deltas[id] = SCORES.decoy[m]
-          stats(id).gotFooled++
-        }
+      if (!scored.has(pid) || !s.scores[pid]) continue
+      counts[optionId] = (counts[optionId] || 0) + 1
+      const stats = s.scores[pid].stats
+      if (optionId === truth.id) {
+        // A missing time (shouldn't happen) counts as the slowest correct answer.
+        const ms = c.pickTimes?.[pid] ?? windowMs
+        const realMs = Math.round(ms / this.timeScale)
+        deltas[pid] = quizPoints(s.round, ms, windowMs)
+        correct.push({ id: pid, ms: realMs, points: deltas[pid] })
+        stats.truths++
+        stats.correctMs += realMs
+        stats.streak++
+        stats.bestStreak = Math.max(stats.bestStreak, stats.streak)
       } else {
-        for (const a of o.authors) {
-          if (!scored.has(a)) continue
-          deltas[a] = SCORES.fool[m] * pickers.length
-          stats(a).fooled += pickers.length
-          stats(a).liePoints = (stats(a).liePoints || 0) + deltas[a]
-        }
-        for (const id of pickers) stats(id).gotFooled++
+        deltas[pid] = QUIZ_SCORES.wrong[m]
+        stats.wrong++
+        stats.streak = 0
       }
-      lieSteps.push({
-        optionId: o.id, text: o.text, kind: o.isDecoy ? 'decoy' : 'lie',
-        authors: o.authors, bought: o.bought || [], pickers, audienceCount, deltas,
-      })
     }
-    lieSteps.sort((a, b) => a.pickers.length + a.audienceCount - (b.pickers.length + b.audienceCount))
-
-    // Likes: each like of someone's lie counts for its author(s).
-    for (const like of likes) {
-      const o = c.options.find((x) => x.id === like.optionId)
-      if (!o) continue
-      for (const a of o.authors) if (a !== like.playerId && stats(a)) stats(a).likes++
+    // No answer breaks a streak too.
+    for (const id of scored) if (!c.picks[id] && s.scores[id]) s.scores[id].stats.streak = 0
+    correct.sort((a, b) => a.ms - b.ms)
+    const correctIds = correct.map((x) => x.id)
+    const at = (ms) => Math.round(ms * this.timeScale)
+    return {
+      truthId: truth.id,
+      truthText: truth.text,
+      counts,
+      audienceCounts,
+      answered: Object.values(counts).reduce((a, b) => a + b, 0),
+      correct: correctIds,
+      fastest: correct.slice(0, 5),
+      detected: (c.lifelines || []).filter((id) => correctIds.includes(id)),
+      deltas,
+      nobodyFound: correct.length === 0 && !audienceCounts[truth.id],
+      truthAt: at(2200), // the answer counts show first, then the truth
+      fastestAt: at(4000),
+      duration: TIMERS.QUIZ_REVEAL,
     }
-
-    const nobodyFound = truthStep.pickers.length === 0 && truthStep.audienceCount === 0
-    const steps = [...lieSteps, truthStep]
-    let at = REVEAL_TIMING.LEAD_IN
-    for (const step of steps) {
-      step.at = Math.round(at * this.timeScale)
-      // A lie that fooled several people gets longer, so the liar's nose can grow a notch per person.
-      const dur = step.kind === 'truth'
-        ? (nobodyFound ? REVEAL_TIMING.NOBODY : REVEAL_TIMING.TRUTH)
-        : REVEAL_TIMING.LIE + (step.kind === 'lie' ? REVEAL_TIMING.PER_FOOL * Math.max(0, step.pickers.length - 1) : 0)
-      step.dur = Math.round(dur * this.timeScale)
-      at += dur
-    }
-    const totals = {}
-    for (const step of steps) for (const [id, d] of Object.entries(step.deltas)) totals[id] = (totals[id] || 0) + d
-    const charges = Object.fromEntries(Object.entries(c.charges || {}).filter(([id]) => scored.has(id)))
-    for (const [id, cost] of Object.entries(charges)) totals[id] = (totals[id] || 0) - cost
-    return { steps, nobodyFound, totals, charges, duration: at + REVEAL_TIMING.TAIL }
   }
 
   async goReveal() {
@@ -640,16 +608,17 @@ export class HostEngine {
     const rows = await this.t.fetchRoundRows(this.code, s.questionNo)
     this.recordLifelines(rows.lifelines)
     for (const p of rows.picks) {
-      const option = s.current.options.find((o) => o.id === p.optionId)
-      if (!s.current.picks[p.playerId] && option && !option.authors.includes(p.playerId)) s.current.picks[p.playerId] = p.optionId
+      if (s.current.picks[p.playerId] || !s.current.options.some((o) => o.id === p.optionId)) continue
+      s.current.picks[p.playerId] = p.optionId
+      this.recordPickTime(p)
     }
-    const { steps, nobodyFound, totals, charges, duration } = this.computeReveal(rows.likes)
+    const reveal = this.computeReveal()
     s.prevScores = Object.fromEntries(Object.entries(s.scores).map(([id, v]) => [id, v.score]))
-    for (const [id, d] of Object.entries(totals)) if (s.scores[id]) s.scores[id].score += d
-    s.lastDeltas = totals
-    s.current.reveal = { steps, nobodyFound, charges }
+    for (const [id, d] of Object.entries(reveal.deltas)) if (s.scores[id]) s.scores[id].score += d
+    s.lastDeltas = reveal.deltas
+    s.current.reveal = reveal
     s.phase = 'REVEAL'
-    await this.publish(duration)
+    await this.publish(reveal.duration)
   }
 
   async goScoreboard() {
@@ -677,11 +646,18 @@ export class HostEngine {
   computeAwards() {
     const ids = this.gamePlayers().map((p) => p.id)
     const awards = []
+    const stat = (id, key) => {
+      const st = this.s.scores[id]?.stats
+      if (!st) return 0
+      if (key === 'avgCorrectMs') return st.truths ? Math.round(st.correctMs / st.truths) : 0
+      return st[key] ?? 0
+    }
     for (const def of AWARDS) {
-      const val = (id) => this.s.scores[id]?.stats?.[def.stat] ?? 0
-      const best = Math.max(0, ...ids.map(val))
-      if (best <= 0) continue
-      awards.push({ key: def.key, title: def.title, playerIds: ids.filter((id) => val(id) === best), stat: def.label(best) })
+      const pool = ids.filter((id) => (this.s.scores[id]?.stats.truths ?? 0) >= (def.minCorrect ?? 0) && stat(id, def.stat) >= (def.min ?? 0))
+      if (!pool.length) continue
+      const vals = pool.map((id) => stat(id, def.stat))
+      const best = def.lowest ? Math.min(...vals) : Math.max(...vals)
+      awards.push({ key: def.key, title: def.title, playerIds: pool.filter((id) => stat(id, def.stat) === best), stat: def.label(best) })
     }
     return awards
   }

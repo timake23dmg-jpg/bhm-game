@@ -127,47 +127,33 @@ async function main() {
       const picker = players.find((p) => p.id === s.pickerId)
       ok(await picker.sb.from('commands').insert({ game_code: code, player_id: picker.id, cmd: 'pickCategory', payload: { category: s.categoryOptions[0] } }))
     }
-    const q = await until((x) => x.phase === 'LIE_ENTRY')
-    const qn = q.questionNo
-    const answer = engine.s.current.question.answer
-    const rejected = ok(await ana.sb.rpc('submit_lie', { p_code: code, p_question_no: qn, p_text: `The ${answer}!` }))
-    assert.equal(rejected.reason, 'isTruth')
-    const buyer = players.at(-1)
-    if (n === 0) {
-      // "Lie for me": the first is free, the next costs 100 points nobody has yet.
-      const free = ok(await buyer.sb.rpc('lie_for_me', { p_code: code, p_question_no: qn }))
-      assert.ok(free.ok && free.cost === 0 && free.text, JSON.stringify(free))
-      const paid = ok(await buyer.sb.rpc('lie_for_me', { p_code: code, p_question_no: qn }))
-      assert.deepEqual([paid.ok, paid.reason, paid.cost], [false, 'broke', 100])
-    }
-    await Promise.all(players.map(async (p) => {
-      const r = ok(await p.sb.rpc('submit_lie', { p_code: code, p_question_no: qn, p_text: `${p.name} lie ${n}` }))
-      assert.ok(r.ok, JSON.stringify(r))
-    }))
-    // Another player's lie is invisible to Ana.
-    assert.equal(ok(await ana.sb.from('lies').select('player_id').eq('game_code', code).eq('question_no', qn)).length, 1)
+    // Quiz: straight from the question to four answers.
     const pick = await until((x) => x.phase === 'PICK_TRUTH')
+    const qn = pick.questionNo
+    assert.equal(pick.options.length, 4)
     assert.ok(!JSON.stringify(pick).includes('isTruth'), 'truth flag must not be public before reveal')
+    const truthId = engine.s.current.options.find((o) => o.isTruth).id
     if (n === 0) {
       // Truth Detector: keeps the truth and one other option, once per game.
       const det = ok(await ana.sb.rpc('use_lifeline', { p_code: code, p_question_no: qn }))
-      const truthId = engine.s.current.options.find((o) => o.isTruth).id
       assert.ok(det.ok && det.keep.length === 2 && det.keep.includes(truthId), JSON.stringify(det))
     } else if (n === 1) {
       const again = ok(await ana.sb.rpc('use_lifeline', { p_code: code, p_question_no: qn }))
       assert.deepEqual([again.ok, again.reason], [false, 'used'])
     }
+    // Ana always answers right; everyone else picks at random.
     await Promise.all(players.map(async (p) => {
-      const own = `${p.name} lie ${n}`.toLowerCase()
-      const opt = pick.options.find((o) => o.text.toLowerCase() !== own)
-      ok(await p.sb.rpc('submit_pick', { p_code: code, p_question_no: qn, p_option_id: opt.id }))
+      const opt = p === ana ? truthId : pick.options[Math.floor(Math.random() * 4)].id
+      ok(await p.sb.rpc('submit_pick', { p_code: code, p_question_no: qn, p_option_id: opt }))
     }))
     const rev = await until((x) => x.phase === 'REVEAL')
-    if (n === 0) assert.equal(rev.players.find((p) => p.id === buyer.id).lieBuys, 1, 'host counted the bought lie')
+    assert.ok(rev.reveal.correct.includes(ana.id), 'Ana found the truth')
+    assert.ok(rev.reveal.deltas[ana.id] >= 500, 'Ana scored for a correct answer')
+    assert.equal(rev.reveal.answered, players.length)
     n++
-    console.log(`question ${n} ok`)
+    console.log(`question ${n} ok: ${rev.reveal.correct.length} of ${players.length} correct`)
   }
-  assert.equal(n, 7)
+  assert.equal(n, 11)
   console.log('winner:', pub.winners.map((id) => players.find((p) => p.id === id)?.name).join(', '))
   engine.stop()
   reportMessages()

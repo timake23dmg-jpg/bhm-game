@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { HostEngine } from '../src/engine/hostEngine.js'
 import { LocalServer } from '../src/lib/transport/localServer.js'
 import { createLocalHostTransport } from '../src/lib/transport/localTransport.js'
-import { liePrice } from '../src/lib/rules.js'
+import { quizPoints, QUIZ_SCORES, TIMERS } from '../src/engine/constants.js'
 
 const questions = JSON.parse(readFileSync(new URL('../src/data/questions.json', import.meta.url), 'utf8'))
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -30,6 +30,25 @@ async function until(engine, predicate, timeout = 5000) {
   return engine.publicState
 }
 
+// Picks a category if asked, then waits for the answers to appear.
+async function toAnswers(engine, server, code, players, timeout = 20000) {
+  const s = await until(engine, (x) => ['CATEGORY_PICK', 'FINAL_TITLE', 'WINNER'].includes(x.phase), timeout)
+  if (s.phase === 'WINNER') return null
+  if (s.phase === 'CATEGORY_PICK') {
+    const picker = players.find((p) => p.id === s.pickerId)
+    server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
+  }
+  return until(engine, (x) => x.phase === 'PICK_TRUTH', timeout)
+}
+
+test('quiz points: faster correct answers score more, by round', () => {
+  assert.equal(quizPoints(1, 0), 1000)
+  assert.equal(quizPoints(1, TIMERS.PICK_TRUTH), 500)
+  assert.equal(quizPoints(1, TIMERS.PICK_TRUTH / 2), 750)
+  assert.equal(quizPoints(2, 0), 2000)
+  assert.equal(quizPoints(3, TIMERS.PICK_TRUTH * 2), 1500, 'never below the slowest score')
+})
+
 test('rejects start with fewer than 2 players', async () => {
   const { engine } = await setup(['Ana'])
   await engine.startGame()
@@ -37,7 +56,7 @@ test('rejects start with fewer than 2 players', async () => {
   engine.stop()
 })
 
-test('full game: phases, scoring, truth hidden until reveal, awards', async () => {
+test('full game: 4 answers, speed scoring, wrong answers cost points, awards', async () => {
   const { server, engine, code, players, states } = await setup(['Ana', 'Ben', 'Cat'])
   const [ana, ben, cat] = players
   assert.equal(engine.publicState.vipId, ana.id)
@@ -65,48 +84,44 @@ test('full game: phases, scoring, truth hidden until reveal, awards', async () =
     if (s.phase === 'CATEGORY_PICK') assert.equal(secret.category, s.categoryOptions[1])
     assert.equal(q.question.answer, undefined, 'answer must not be in public state')
 
-    await until(engine, (x) => x.phase === 'LIE_ENTRY')
-    assert.equal(server.submitLie(ana.userId, code, qn, secret.answer).reason, 'isTruth')
-    assert.ok(server.submitLie(ana.userId, code, qn, 'zzfake one').ok)
-    assert.ok(server.submitLie(ben.userId, code, qn, 'ZZFake One!').ok) // duplicate after normalising
-    // Cat buys a lie every question: the first is free, then 100, 200, ... 500.
-    const bought = server.lieForMe(cat.userId, code, qn)
-    assert.ok(bought.ok, `lie for me refused: ${bought.reason}`)
-    assert.equal(bought.cost, liePrice(questionsPlayed))
-    assert.ok(secret.suggestedLies.includes(bought.text))
-    assert.ok(server.submitLie(cat.userId, code, qn, bought.text).ok)
-
-    const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH') // advanced early
+    const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH') // straight from the question: no lie writing
     const json = JSON.stringify(pick)
-    assert.ok(!json.includes('authors') && !json.includes('isTruth'), 'no authors/truth flags before reveal')
-    assert.ok(pick.options.length >= 4)
-    const shared = pick.options.filter((o) => o.text.toLowerCase().includes('zzfake'))
-    assert.equal(shared.length, 1, 'duplicate lie shown once')
+    assert.ok(!json.includes('isTruth') && !json.includes('isDecoy'), 'no truth flags before reveal')
+    assert.equal(pick.options.length, 4)
+    assert.ok(pick.options.some((o) => o.text === secret.answer))
+    for (const o of pick.options) assert.ok(o.text === secret.answer || secret.suggestedLies.includes(o.text))
     const truthOpt = engine.s.current.options.find((o) => o.isTruth)
-    const catOpt = engine.s.current.options.find((o) => o.authors.includes(cat.id))
+    const wrongOpt = engine.s.current.options.find((o) => !o.isTruth)
     const before = Object.fromEntries(players.map((p) => [p.id, engine.s.scores[p.id].score]))
 
+    // Ana answers right first, Ben right a moment later, Cat wrong.
     server.submitPick(ana.userId, code, qn, truthOpt.id)
-    server.submitPick(ben.userId, code, qn, catOpt.id)
-    server.submitPick(cat.userId, code, qn, shared[0].id)
-    server.setLike(ben.userId, code, qn, ben.id, catOpt.id, true)
+    await wait(20)
+    server.submitPick(ben.userId, code, qn, truthOpt.id)
+    server.submitPick(cat.userId, code, qn, wrongOpt.id)
 
-    const rev = await until(engine, (x) => x.phase === 'REVEAL')
+    const rev = await until(engine, (x) => x.phase === 'REVEAL') // ends early: everyone answered
     const m = rev.round
-    assert.equal(rev.reveal.steps.at(-1).kind, 'truth')
-    assert.equal(engine.s.scores[ana.id].score - before[ana.id], 1000 * m + 500 * m) // truth + fooled Cat
-    assert.equal(engine.s.scores[ben.id].score - before[ben.id], 500 * m) // co-author of the lie Cat picked
-    assert.equal(engine.s.scores[cat.id].score - before[cat.id], 500 * m - bought.cost) // fooled Ben, paid for the lie
-    assert.deepEqual(rev.reveal.steps.find((x) => x.optionId === catOpt.id).bought, [cat.id])
-    assert.equal(rev.players.find((p) => p.id === cat.id).lieBuys, questionsPlayed + 1)
+    const gain = (p) => engine.s.scores[p.id].score - before[p.id]
+    assert.equal(rev.reveal.truthId, truthOpt.id)
+    assert.deepEqual(rev.reveal.correct, [ana.id, ben.id], 'fastest first')
+    assert.equal(rev.reveal.counts[truthOpt.id], 2)
+    assert.equal(rev.reveal.counts[wrongOpt.id], 1)
+    assert.ok(gain(ana) <= 1000 * m && gain(ana) >= 500 * m)
+    assert.ok(gain(ana) >= gain(ben) && gain(ben) >= 500 * m, 'faster answer, more points')
+    assert.equal(gain(cat), QUIZ_SCORES.wrong[m - 1])
+    assert.equal(rev.reveal.deltas[cat.id], QUIZ_SCORES.wrong[m - 1])
     await until(engine, (x) => x.phase === 'SCOREBOARD')
     questionsPlayed++
   }
-  assert.equal(questionsPlayed, 7)
+  assert.equal(questionsPlayed, 11, '5 + 5 + the final')
   const final = engine.publicState
   assert.deepEqual(final.winners, [ana.id])
-  const titles = final.awards.map((a) => a.title)
-  assert.ok(titles.includes('Truth Seeker') && titles.includes('Crowd Favourite') && titles.includes('Biggest Liar'))
+  const byKey = Object.fromEntries(final.awards.map((a) => [a.key, a]))
+  assert.deepEqual(byKey.fastestFingers.playerIds, [ana.id])
+  assert.deepEqual(byKey.hotStreak.playerIds.sort(), [ana.id, ben.id].sort())
+  assert.equal(byKey.hotStreak.stat, '11 correct answers in a row')
+  assert.ok(byKey.truthSeeker)
   await until(engine, (s) => s.phase === 'AWARDS')
   server.sendCommand(ana.userId, code, ana.id, 'backToLobby')
   await until(engine, (s) => s.phase === 'LOBBY')
@@ -114,43 +129,37 @@ test('full game: phases, scoring, truth hidden until reveal, awards', async () =
   engine.stop()
 })
 
-test('few lies are padded with house decoys; decoy pick costs points', async () => {
+test('no answer scores nothing and breaks a streak', async () => {
   const { server, engine, code, players } = await setup(['Ana', 'Ben'])
   const [ana, ben] = players
   await engine.startGame()
   await engine.skip()
-  const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK')
-  const picker = players.find((p) => p.id === s.pickerId)
-  server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-  const q = await until(engine, (x) => x.phase === 'LIE_ENTRY')
-  server.submitLie(ana.userId, code, q.questionNo, 'qqqq')
-  // Ben never submits: the timer runs out
-  const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH')
-  assert.equal(pick.options.length, 4)
-  const decoy = engine.s.current.options.find((o) => o.isDecoy)
-  server.submitPick(ben.userId, code, pick.questionNo, decoy.id)
-  await until(engine, (x) => x.phase === 'REVEAL')
-  assert.equal(engine.s.scores[ben.id].score, -250)
+  const pick = await toAnswers(engine, server, code, players)
+  const truth = engine.s.current.options.find((o) => o.isTruth)
+  server.submitPick(ana.userId, code, pick.questionNo, truth.id)
+  // Ben never answers: the timer runs out
+  const rev = await until(engine, (x) => x.phase === 'REVEAL')
+  assert.equal(engine.s.scores[ben.id].score, 0)
+  assert.equal(rev.reveal.deltas[ben.id], undefined)
+  assert.equal(engine.s.scores[ana.id].stats.streak, 1)
+  assert.equal(engine.s.scores[ben.id].stats.streak, 0)
   engine.stop()
 })
 
-test('real-time timers: lie entry and picking end early once everyone is in', async () => {
+test('real-time timers: answering ends early once everyone is in', async () => {
   const { server, engine, code, players } = await setup(['Ana', 'Ben'], { timeScale: 1 })
   await engine.startGame()
   await engine.skip() // INTRO -> ROUND_TITLE (3 s)
   const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK')
   const picker = players.find((p) => p.id === s.pickerId)
   server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-  const q = await until(engine, (x) => x.phase === 'LIE_ENTRY', 8000) // QUESTION is 5 s
+  const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 8000) // QUESTION is 4 s
   const t0 = Date.now()
-  for (const p of players) server.submitLie(p.userId, code, q.questionNo, `${p.name} fib`)
-  const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 1000) // not the 45 s timer
-  for (const p of players) {
-    const own = `${p.name} fib`.toLowerCase()
-    server.submitPick(p.userId, code, pick.questionNo, pick.options.find((o) => o.text.toLowerCase() !== own).id)
-  }
-  await until(engine, (x) => x.phase === 'REVEAL', 1000) // not the 20 s timer
+  for (const p of players) server.submitPick(p.userId, code, pick.questionNo, pick.options[0].id)
+  await until(engine, (x) => x.phase === 'REVEAL', 1500) // not the 15 s timer
   assert.ok(Date.now() - t0 < 1500)
+  const correct = engine.s.current.reveal.correct
+  if (correct.length) assert.ok(engine.s.current.reveal.fastest[0].points > 900, 'an instant answer is worth nearly full points')
   engine.stop()
 })
 
@@ -163,17 +172,17 @@ test('disconnected players are not waited for', async () => {
   assert.notEqual(s.pickerId, players[2].id, 'offline players are not chosen to pick')
   const picker = players.find((p) => p.id === s.pickerId)
   server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-  const q = await until(engine, (x) => x.phase === 'LIE_ENTRY', 8000)
-  server.submitLie(players[0].userId, code, q.questionNo, 'one')
-  server.submitLie(players[1].userId, code, q.questionNo, 'two')
-  await until(engine, (x) => x.phase === 'PICK_TRUTH', 1000)
+  const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 8000)
+  server.submitPick(players[0].userId, code, pick.questionNo, pick.options[0].id)
+  server.submitPick(players[1].userId, code, pick.questionNo, pick.options[1].id)
+  await until(engine, (x) => x.phase === 'REVEAL', 1500)
   const cat = engine.publicState.players.find((p) => p.id === players[2].id)
   assert.equal(cat.connected, false)
   assert.equal(cat.score, 0, 'keeps score while away')
   engine.stop()
 })
 
-test('short game with 5 players: 2 + 2 + 1 questions', async () => {
+test('short game with 5 players: 3 + 3 + 1 questions', async () => {
   const { engine } = await setup(['A', 'B', 'C', 'D', 'E'], { settings: { shortGame: true }, timeScale: 0.002 })
   await engine.startGame()
   const seen = new Set()
@@ -181,7 +190,7 @@ test('short game with 5 players: 2 + 2 + 1 questions', async () => {
     if (s.phase === 'QUESTION') seen.add(s.questionNo)
     return s.phase === 'WINNER'
   }, 20000)
-  assert.equal(seen.size, 5)
+  assert.equal(seen.size, 7)
   engine.stop()
 })
 
@@ -201,25 +210,6 @@ test('end game mid-round: phones see ENDED + the new code, players can join the 
   assert.equal(rejoined.isAudience, false, 'joins the new lobby as a player, not audience')
 })
 
-test('"Lie for me": first is free, then it costs points you must have', async () => {
-  const { server, engine, code, players } = await setup(['Ana', 'Ben'])
-  const [ana, ben] = players
-  server.sendCommand(ana.userId, code, ana.id, 'start')
-  await until(engine, (s) => s.phase === 'INTRO')
-  server.sendCommand(ana.userId, code, ana.id, 'skipIntro')
-  const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK')
-  const picker = players.find((p) => p.id === s.pickerId)
-  server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-  const { questionNo: qn } = await until(engine, (x) => x.phase === 'LIE_ENTRY')
-
-  const first = server.lieForMe(ana.userId, code, qn)
-  assert.deepEqual([first.ok, first.cost], [true, 0])
-  const second = server.lieForMe(ana.userId, code, qn) // 100 pts, but Ana has 0
-  assert.deepEqual([second.ok, second.reason, second.cost], [false, 'broke', 100])
-  assert.notEqual(server.lieForMe(ben.userId, code, qn).text, undefined, 'Ben still gets his free one')
-  engine.stop()
-})
-
 test('a TV avoids questions it played recently, even in a new room', () => {
   const server = new LocalServer({ questions })
   const code = server.createGame('host')
@@ -235,33 +225,24 @@ test('a TV avoids questions it played recently, even in a new room', () => {
   assert.equal(cats.length, 3)
 })
 
-test('Truth Detector: once per game, keeps the truth and one lie', async () => {
+test('Truth Detector: once per game, keeps the truth and one wrong answer', async () => {
   const { server, engine, code, players } = await setup(['Ana', 'Ben', 'Cat'])
   const [ana, ben, cat] = players
   server.sendCommand(ana.userId, code, ana.id, 'start')
   await until(engine, (s) => s.phase === 'INTRO')
   server.sendCommand(ana.userId, code, ana.id, 'skipIntro')
   for (let q = 0; q < 2; q++) {
-    const s = await until(engine, (x) => x.phase === 'CATEGORY_PICK', 20000)
-    const picker = players.find((p) => p.id === s.pickerId)
-    server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-    const { questionNo: qn } = await until(engine, (x) => x.phase === 'LIE_ENTRY')
-    for (const p of players) server.submitLie(p.userId, code, qn, `zz ${p.name} ${q}`)
-    await until(engine, (x) => x.phase === 'PICK_TRUTH')
+    const { questionNo: qn } = await toAnswers(engine, server, code, players)
     const truth = engine.s.current.options.find((o) => o.isTruth)
     const res = server.useLifeline(ana.userId, code, qn)
     if (q === 0) {
       assert.ok(res.ok, JSON.stringify(res))
       assert.equal(res.keep.length, 2)
       assert.ok(res.keep.includes(truth.id))
-      const own = engine.s.current.options.find((o) => o.authors.includes(ana.id))
-      assert.ok(!res.keep.includes(own.id), 'never keeps your own lie')
       assert.deepEqual(server.useLifeline(ana.userId, code, qn).keep, res.keep, 'asking again gives the same two')
-      server.submitPick(ana.userId, code, qn, truth.id)
-      server.submitPick(ben.userId, code, qn, truth.id)
-      server.submitPick(cat.userId, code, qn, truth.id)
+      for (const p of [ana, ben, cat]) server.submitPick(p.userId, code, qn, truth.id)
       const rev = await until(engine, (x) => x.phase === 'REVEAL')
-      assert.deepEqual(rev.reveal.steps.at(-1).detected, [ana.id])
+      assert.deepEqual(rev.reveal.detected, [ana.id])
       assert.equal(rev.players.find((p) => p.id === ana.id).lifelineUsed, true)
     } else {
       assert.deepEqual([res.ok, res.reason], [false, 'used'], 'only once per game')
@@ -293,7 +274,7 @@ test('mugshot selfies: saved on the player, given to the TV, never in the public
   engine.stop()
 })
 
-test('70 players: everyone joins as a player, options are capped, game finishes', async () => {
+test('70 players: everyone joins as a player, 4 answers each time, game finishes', async () => {
   const names = Array.from({ length: 70 }, (_, i) => `P${i + 1}`)
   const { server, engine, code, players } = await setup(names)
   assert.equal(engine.publicState.players.filter((p) => !p.isAudience).length, 70, 'all 70 are players, not audience')
@@ -302,22 +283,15 @@ test('70 players: everyone joins as a player, options are capped, game finishes'
   await until(engine, (s) => s.phase === 'INTRO')
   server.sendCommand(vip.userId, code, vip.id, 'skipIntro')
   for (;;) {
-    const s = await until(engine, (x) => ['CATEGORY_PICK', 'FINAL_TITLE', 'WINNER'].includes(x.phase), 30000)
-    if (s.phase === 'WINNER') break
-    if (s.phase === 'CATEGORY_PICK') {
-      const picker = players.find((p) => p.id === s.pickerId)
-      server.sendCommand(picker.userId, code, picker.id, 'pickCategory', { category: s.categoryOptions[0] })
-    }
-    const q = await until(engine, (x) => x.phase === 'LIE_ENTRY', 30000)
-    for (const p of players) server.submitLie(p.userId, code, q.questionNo, `made up answer ${p.name}`)
-    const pick = await until(engine, (x) => x.phase === 'PICK_TRUTH', 30000)
-    assert.ok(pick.options.length <= 12, `too many options on screen: ${pick.options.length}`)
-    const truth = engine.s.current.options.find((o) => o.isTruth)
-    assert.ok(truth, 'the truth is always among the options')
+    const pick = await toAnswers(engine, server, code, players, 30000)
+    if (!pick) break
+    assert.equal(pick.options.length, 4)
     for (const p of players) {
-      const choices = pick.options.filter((o) => o.text !== `made up answer ${p.name}`)
-      server.submitPick(p.userId, code, q.questionNo, choices[Math.floor(Math.random() * choices.length)].id)
+      server.submitPick(p.userId, code, pick.questionNo, pick.options[Math.floor(Math.random() * 4)].id)
     }
+    const rev = await until(engine, (x) => x.phase === 'REVEAL', 30000)
+    assert.equal(rev.reveal.answered, 70)
+    assert.ok(rev.reveal.fastest.length <= 5)
     await until(engine, (x) => x.phase === 'SCOREBOARD', 60000)
   }
   assert.ok(engine.publicState.winners.length >= 1)

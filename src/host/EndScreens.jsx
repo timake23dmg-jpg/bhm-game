@@ -1,11 +1,10 @@
-// The end of the game: the winner's front page ("Liar of the Year") and the
-// awards, where the Biggest Liar gets a WANTED poster with a £ bounty.
+// The end of the game: the winner's front page ("Champion of the Night") and
+// the award cards (Fastest Fingers, Hot Streak, Truth Seeker).
 
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { Avatar, Mugshot, fmt, useNow } from '../components/shared.jsx'
-import Nose from '../components/Nose.jsx'
 import { sfx } from '../lib/audio.js'
 import { narrate } from '../lib/narrator.js'
 import { winnerLines, awardLine, THANKS_LINE } from './narration.js'
@@ -13,7 +12,6 @@ import { awardDuration } from '../engine/constants.js'
 
 const byId = (players) => Object.fromEntries(players.map((p) => [p.id, p]))
 const gamePlayers = (pub) => pub.players.filter((p) => !p.isAudience)
-const plural = (n, word) => `${fmt(n)} ${word}${n === 1 ? '' : 's'}`
 const ordinal = (n) => `${n}${['TH', 'ST', 'ND', 'RD'][n % 100 >= 11 && n % 100 <= 13 ? 0 : Math.min(n % 10, 4) % 4] || 'TH'}`
 
 function fire(rm, opts = {}) {
@@ -102,35 +100,34 @@ export function WinnerScreen({ pub, rm }) {
         <div className="bp-heroes">
           {winners.map((p, i) => (
             <div key={p.id} className="bp-hero-card" style={{ '--tilt': `${i % 2 ? 2 : -2}deg`, animationDelay: `${0.3 + i * 0.2}s` }}>
-              <Mugshot player={p} width={heroWidth} crown flash={0.9 + i * 0.2} caption="CASE CLOSED" />
+              <Mugshot player={p} width={heroWidth} crown flash={0.9 + i * 0.2} caption="CHAMPION" />
               <span className="twinkle a" aria-hidden="true" />
               <span className="twinkle b" aria-hidden="true" />
             </div>
           ))}
         </div>
-        <div className="bp-stamp">GOT AWAY WITH IT</div>
+        <div className="bp-stamp">TRUTH BE TOLD</div>
       </div>
 
       <div className="bp-story">
-        <RansomHeadline text={solo ? 'LIAR OF THE YEAR' : 'LIARS OF THE YEAR'} />
+        <RansomHeadline text={solo ? 'CHAMPION OF THE NIGHT' : 'CHAMPIONS OF THE NIGHT'} />
         <div className="bp-clipping">
           <div className="bp-paper">Truth Be Told · Black History Month</div>
           {solo ? (
             <p>
-              <b>{w?.name}</b> walks free with <b><CountUp value={top} rm={rm} delay={1.6} /> points</b>
-              {w?.fooled > 0 ? <> after fooling the room {plural(w.fooled, 'time')}.</> : <> without fooling a single person. Suspiciously honest.</>}{' '}
-              “I don't know what you're talking about,” the suspect told reporters.
+              <b>{w?.name}</b> takes the crown with <b><CountUp value={top} rm={rm} delay={1.6} /> points</b>.
+              Quick thinking, sharp knowledge, and a true story at every turn.
             </p>
           ) : (
             <p>
-              <b>{winners.map((p) => p.name).join(' and ').replace(/ and (?=.* and )/g, ', ')}</b> share the title with{' '}
-              <b><CountUp value={top} rm={rm} delay={1.6} /> points</b> each. Police are questioning all of them.
+              <b>{winners.map((p) => p.name).join(' and ').replace(/ and (?=.* and )/g, ', ')}</b> share the crown with{' '}
+              <b><CountUp value={top} rm={rm} delay={1.6} /> points</b> each. A dead heat at the top!
             </p>
           )}
         </div>
         {shown.length > 0 && (
           <>
-            <div className="bp-also">Also in the line-up</div>
+            <div className="bp-also">Also on the leaderboard</div>
             <div className="bp-lineup">
               {shown.map((p, i) => {
                 const last = p.score === bottom && bottom < top
@@ -150,78 +147,6 @@ export function WinnerScreen({ pub, rm }) {
 }
 
 // ----------------------------------------------------------------- AWARDS
-
-const NICKNAMES = ['Smooth', 'Slippery', 'Shifty', 'Silver Tongue', 'Two-Face', 'The Weasel', 'Porky Pies', 'Fibs']
-function nickname(player) {
-  let h = 11
-  for (const ch of String(player.id)) h = (h * 33 + ch.charCodeAt(0)) % 9973
-  return NICKNAMES[h % NICKNAMES.length]
-}
-
-function WantedPoster({ player, rm, index = 0, small = false }) {
-  const bounty = player.liePoints || 0
-  return (
-    <div className={`wanted ${small ? 'small' : ''}`} style={{ animationDelay: `${index * 0.25}s, ${0.9 + index * 0.25}s` }}>
-      <div className="wanted-paper">
-        <span className="wanted-pin left" aria-hidden="true" />
-        <span className="wanted-pin right" aria-hidden="true" />
-        <span className="wanted-tape" aria-hidden="true" />
-        <div className="wanted-title">WANTED</div>
-        <div className="wanted-for">FOR LYING TO FRIENDS</div>
-        <div className="wanted-rule" />
-        <div className="wanted-photo-wrap">
-          <div className="wanted-photo">
-            {player.photo ? <img src={player.photo} alt={`${player.name}'s mugshot`} /> : <span className="wanted-emoji">{player.avatar}</span>}
-          </div>
-          {player.fooled > 0 && <Nose size={240} from={0} fools={player.fooled} delay={rm ? 0 : 1.2 + index * 0.4} max={1.1} />}
-        </div>
-        <div className="wanted-aka">a.k.a. “{nickname(player)}”</div>
-        <div className="wanted-name">{player.name}</div>
-        <div className="wanted-crimes">
-          Fooled {plural(player.fooled || 0, 'friend')}
-          {player.lieBuys > 0 && <> · Bought {plural(player.lieBuys, 'lie')}</>}
-          <br />
-          Do not approach. Will lie to you.
-        </div>
-        <div className="wanted-rule" />
-        <div className="wanted-reward">
-          REWARD £<CountUp value={bounty} rm={rm} delay={1.4 + index * 0.25} duration={1400} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function WantedWall({ award, players, pub, rm }) {
-  const liars = award.playerIds.map((id) => players[id]).filter(Boolean)
-  // The side notices: the truth went missing, and the most gullible lost their dignity.
-  const notLiar = (p) => p && !award.playerIds.includes(p.id)
-  const lastPlace = gamePlayers(pub).filter(notLiar).sort((a, b) => a.score - b.score)[0]
-  const gullible = (pub.awards || []).find((a) => a.key === 'mostGullible')?.playerIds.map((id) => players[id]).find(notLiar) || lastPlace
-  useEffect(() => {
-    const t = setTimeout(() => sfx('chaChing'), rm ? 0 : 1500)
-    return () => clearTimeout(t)
-  }, [])
-  return (
-    <div className="screen awards wanted-wall">
-      <div className="notice missing">
-        <div className="notice-title">MISSING</div>
-        <div className="notice-what">THE TRUTH</div>
-        <div className="notice-note">Last seen in round one. Answers to “boring”.</div>
-      </div>
-      {gullible && (
-        <div className="notice lost">
-          <div className="notice-title">LOST</div>
-          <div className="notice-what">{gullible.name.toUpperCase()}'S DIGNITY</div>
-          <div className="notice-note">If found, please return. No reward.</div>
-        </div>
-      )}
-      <div className="wanted-row">
-        {liars.map((p, i) => <WantedPoster key={p.id} player={p} rm={rm} index={i} small={liars.length > 1} />)}
-      </div>
-    </div>
-  )
-}
 
 export function AwardsScreen({ pub, serverNow, engine, rm }) {
   const now = useNow(serverNow, 200)
@@ -262,9 +187,8 @@ export function AwardsScreen({ pub, serverNow, engine, rm }) {
     )
   }
 
-  if (award.key === 'biggestLiar') return <WantedWall key={award.key} award={award} players={players} pub={pub} rm={rm} />
-
-  const value = Number(award.stat.match(/\d+/)?.[0] ?? 0)
+  // Whole numbers count up; others (like 2.4 seconds) just appear.
+  const [before, num, after] = award.stat.match(/^(.*?)(\d+(?:\.\d+)?)(.*)$/)?.slice(1) ?? [award.stat, '', '']
   return (
     <div className="screen awards">
       <AnimatePresence mode="wait">
@@ -285,7 +209,9 @@ export function AwardsScreen({ pub, serverNow, engine, rm }) {
             ))}
           </div>
           <div className="award-stat">
-            {award.stat.split(/\d+/)[0]}<span className="count"><CountUp value={value} rm={rm} delay={0.4} duration={600} /></span>{award.stat.split(/\d+/).slice(1).join('')}
+            {before}
+            {num && <span className="count">{num.includes('.') ? num : <CountUp value={Number(num)} rm={rm} delay={0.4} duration={600} />}</span>}
+            {after}
           </div>
         </motion.div>
       </AnimatePresence>

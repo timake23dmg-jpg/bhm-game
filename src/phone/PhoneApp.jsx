@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { createPlayerTransport } from '../lib/transport/index.js'
-import { normalize, LIE_MAX, REJECT_MESSAGES, liePrice, lieCost } from '../lib/rules.js'
 import { rankPlayers } from '../engine/hostEngine.js'
-import { MAX_PLAYERS } from '../engine/constants.js'
+import { MAX_PLAYERS, LETTERS } from '../engine/constants.js'
 import { AVATARS, Avatar, MuteButton, Prompt, Wordmark, fmt, signed, useNow } from '../components/shared.jsx'
 import { setLobbyMusic, primeLobbyMusic, getMusicState, subscribeMusic } from '../lib/lobbyMusic.js'
 import MugshotCamera from './MugshotCamera.jsx'
@@ -351,7 +350,7 @@ function PhoneView({ transport, code, me, state }) {
 
     case 'INTRO':
       return (
-        <Waiting title="Get ready!" sub="Write lies. Spot the truth. Fool your friends.">
+        <Waiting title="Get ready!" sub="Tap the true answer. The faster you are, the more you score.">
           {isVip && (
             <div className="bottom-actions">
               <button className="btn btn-ghost btn-block" onClick={() => send('skipIntro')}>Skip intro ▶</button>
@@ -362,7 +361,7 @@ function PhoneView({ transport, code, me, state }) {
 
     case 'ROUND_TITLE':
     case 'FINAL_TITLE':
-      return <Waiting title="Look at the screen" sub={state.phase === 'FINAL_TITLE' ? 'The Final Edition — triple points!' : `Round ${state.round}${state.round === 2 ? ' — double points!' : ''}`} />
+      return <Waiting title="Look at the screen" sub={state.phase === 'FINAL_TITLE' ? 'The Final Round — triple points!' : `Round ${state.round}${state.round === 2 ? ' — double points!' : ''}`} />
 
     case 'CATEGORY_PICK':
       if (state.pickerId === me.id) {
@@ -381,17 +380,17 @@ function PhoneView({ transport, code, me, state }) {
       return <Waiting title={`${byId[state.pickerId]?.name ?? 'Someone'} is picking…`} sub="Look at the screen" />
 
     case 'QUESTION':
-      return <Waiting title="Read the question on screen" />
-
-    case 'LIE_ENTRY':
-      if (audience) return <Waiting title="Players are writing lies…" sub="Get ready to spot the truth!" />
-      return <LieEntry transport={transport} code={code} me={me} state={state} mine={mine} updateMine={updateMine} byId={byId} />
+      return (
+        <Waiting title="Get ready…" sub="The answers are coming!">
+          <p className="phone-question"><Prompt text={state.question.prompt} /></p>
+        </Waiting>
+      )
 
     case 'PICK_TRUTH':
       return <PickTruth transport={transport} code={code} me={me} state={state} mine={mine} updateMine={updateMine} />
 
     case 'REVEAL':
-      return <RevealDelta transport={transport} me={me} state={state} />
+      return <RevealResult transport={transport} me={me} state={state} />
 
     case 'SCOREBOARD': {
       if (audience) return <Waiting title="Scores are up!" sub="Look at the screen" />
@@ -442,112 +441,9 @@ function PhoneView({ transport, code, me, state }) {
   }
 }
 
-function LieEntry({ transport, code, me, state, mine, updateMine, byId }) {
-  const [text, setText] = useState('')
-  const [error, setError] = useState(null)
-  const [busy, setBusy] = useState(false)
-
-  if (mine.lie) {
-    const waitingOn = state.players.filter((p) => !p.isAudience && p.connected && !state.submitted?.includes(p.id))
-    return (
-      <Waiting title="Lie locked in! 🔒" sub={`“${mine.lie}”`}>
-        <Countdown transport={transport} state={state} />
-        {waitingOn.length > 0 && (
-          <>
-            <p className="hint">Waiting for:</p>
-            <div className="mini-list">{waitingOn.map((p) => <span key={p.id} className="waiting-name">{byId[p.id].avatar} {p.name}</span>)}</div>
-          </>
-        )}
-      </Waiting>
-    )
-  }
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await transport.submitLie(code, state.questionNo, text)
-      if (res.ok) {
-        haptic()
-        updateMine({ lie: text.replace(/\s+/g, ' ').trim() })
-      } else {
-        setError(res.reason === 'closed' ? 'Too late — time is up!' : REJECT_MESSAGES[res.reason] || 'Try another lie.')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // "Lie for me": first one per game free, then it costs points (charged at
-  // the reveal). `bought` counts this question's purchases on this phone.
-  const owned = me.lieBuys || 0
-  const bought = mine.bought || 0
-  const price = liePrice(owned + bought)
-  const canAfford = (me.score || 0) - lieCost(owned, bought) >= price
-  const spent = lieCost(owned, bought)
-  const lieForMe = async () => {
-    setError(null)
-    setBusy(true)
-    try {
-      const res = await transport.lieForMe(code, state.questionNo)
-      if (res?.ok) {
-        haptic()
-        updateMine({ bought: bought + 1 })
-        setText(res.text)
-      } else if (res?.reason === 'broke') {
-        setError(`You need ${fmt(res.cost)} points to buy a lie.`)
-      } else if (res?.reason === 'closed') {
-        setError('Too late — time is up!')
-      } else {
-        setError('No more suggestions — you’re on your own!')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form className="lie-form" onSubmit={submit}>
-      <Countdown transport={transport} state={state} />
-      <p className="phone-question"><Prompt text={state.question.prompt} /></p>
-      <input
-        className="lie-input"
-        value={text}
-        maxLength={LIE_MAX}
-        placeholder="type your lie"
-        autoComplete="off"
-        onChange={(e) => {
-          setText(e.target.value)
-          setError(null)
-        }}
-      />
-      <div className="char-count">{text.length}/{LIE_MAX}</div>
-      {error && <p className="error">{error}</p>}
-      <div className="bottom-actions stack">
-        <button type="button" className="btn btn-ghost btn-block lie-buy" disabled={busy || !canAfford} onClick={lieForMe}>
-          🎲 {price === 0 ? 'Lie for me · FREE' : `Buy a lie · ${fmt(price)} pts`}
-          {!canAfford && <small>Not enough points</small>}
-        </button>
-        {spent > 0 && <p className="lie-spent">−{fmt(spent)} pts at the reveal</p>}
-        <button className="btn btn-pink btn-block" disabled={busy || !text.trim()}>Submit</button>
-      </div>
-    </form>
-  )
-}
-
 function PickTruth({ transport, code, me, state, mine, updateMine }) {
   const [error, setError] = useState(null)
-  const myNorm = mine.lie ? normalize(mine.lie) : null
-  // Can't pick your own lie: hide it (and a merged duplicate of it).
-  const options = useMemo(
-    () => (state.options || []).filter((o) => !myNorm || normalize(o.text) !== myNorm),
-    [state.options, myNorm],
-  )
+  const options = state.options || []
 
   const pick = async (optionId) => {
     haptic()
@@ -564,7 +460,7 @@ function PickTruth({ transport, code, me, state, mine, updateMine }) {
     }
   }
 
-  // Truth Detector: once per game, cuts the options down to the truth + one lie.
+  // Truth Detector: once per game, cuts the options down to the truth + one wrong answer.
   const [detecting, setDetecting] = useState(false)
   const detect = async () => {
     setError(null)
@@ -584,68 +480,62 @@ function PickTruth({ transport, code, me, state, mine, updateMine }) {
     }
   }
 
-  const toggleLike = (optionId) => {
-    const on = !mine.likes.includes(optionId)
-    updateMine({ likes: on ? [...mine.likes, optionId] : mine.likes.filter((x) => x !== optionId) })
-    transport.setLike(code, state.questionNo, me.id, optionId, on).catch(() => {})
-  }
-
   if (!mine.pick) {
     return (
       <div className="pick-list">
         <Countdown transport={transport} state={state} />
-        <h2>Which one is the truth?</h2>
+        <p className="phone-question small"><Prompt text={state.question.prompt} /></p>
         {error && <p className="error">{error}</p>}
         {mine.keep && <p className="detector-note">🔍 One of these two is the truth!</p>}
         <div className="stack">
-          {options.map((o) => {
+          {options.map((o, i) => {
             const ruledOut = mine.keep && !mine.keep.includes(o.id)
             return (
               <button key={o.id} className={`btn btn-option btn-block ${ruledOut ? 'ruled-out' : ''}`} disabled={ruledOut} onClick={() => pick(o.id)}>
-                {o.text}
+                <span className="opt-letter">{LETTERS[i]}</span>
+                <span className="opt-text">{o.text}</span>
               </button>
             )
           })}
         </div>
         {!mine.keep && !me.lifelineUsed && !me.isAudience && (
           <button type="button" className="btn btn-ghost btn-block detector-btn" disabled={detecting} onClick={detect}>
-            🔍 Truth Detector <small>once per game: leaves the truth + one lie</small>
+            🔍 Truth Detector <small>once per game: leaves the truth + one wrong answer</small>
           </button>
         )}
       </div>
     )
   }
 
+  const i = options.findIndex((o) => o.id === mine.pick)
   return (
-    <div className="pick-list">
+    <Waiting title="Locked in! 🔒" sub="Watch the screen for the answer.">
       <Countdown transport={transport} state={state} />
-      <h2>Locked in!</h2>
-      <p className="hint">Like the lies you love 👍</p>
-      <div className="stack">
-        {options.map((o) => (
-          <div key={o.id} className={`like-row ${o.id === mine.pick ? 'chosen' : 'dimmed'}`}>
-            <span>{o.text}</span>
-            <button className={`like-btn ${mine.likes.includes(o.id) ? 'on' : ''}`} onClick={() => toggleLike(o.id)} aria-pressed={mine.likes.includes(o.id)} aria-label={`Like ${o.text}`}>
-              👍
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
+      {i >= 0 && (
+        <div className="btn btn-option btn-block chosen">
+          <span className="opt-letter">{LETTERS[i]}</span>
+          <span className="opt-text">{options[i].text}</span>
+        </div>
+      )}
+    </Waiting>
   )
 }
 
-function RevealDelta({ transport, me, state }) {
+// Right or wrong, and the points, once the TV shows the truth.
+function RevealResult({ transport, me, state }) {
   const now = useNow(transport.serverNow, 250)
-  const elapsed = now - state.startedAt
-  // Only count steps the TV has already revealed (points land ~1.5 s into each step).
-  const delta = (state.reveal?.steps || [])
-    .filter((s) => elapsed >= s.at + (s.kind === 'truth' ? 1000 : 1500))
-    .reduce((sum, s) => sum + (s.deltas[me.id] ?? 0), 0)
+  const r = state.reveal
+  if (me.isAudience || !r) return <Waiting title="Watch the reveal 👀" />
+  if (now - state.startedAt < r.truthAt) return <Waiting title="And the truth is…" sub="Look at the screen 👀" />
+  const delta = r.deltas[me.id]
+  const place = r.correct.indexOf(me.id)
+  const title = delta == null ? 'No answer' : delta > 0 ? 'Correct! ✅' : 'Wrong ❌'
   return (
-    <Waiting title="Watch the reveal 👀">
-      {!me.isAudience && <div className={`big-score ${delta < 0 ? 'neg' : ''}`}>{delta === 0 ? '±0' : signed(delta)}</div>}
-      {!me.isAudience && <p className="hint">this question</p>}
+    <Waiting title={title} sub={`The truth: ${r.truthText}`}>
+      <div className={`big-score ${delta < 0 ? 'neg' : ''}`}>{delta ? signed(delta) : '±0'}</div>
+      {place === 0 && r.correct.length > 1 && <p className="hint">⚡ You were the fastest!</p>}
+      {place > 0 && place < 5 && <p className="hint">⚡ #{place + 1} fastest</p>}
+      {(me.streak ?? 0) >= 3 && <p className="hint">🔥 {me.streak} in a row!</p>}
     </Waiting>
   )
 }
@@ -653,12 +543,11 @@ function RevealDelta({ transport, me, state }) {
 // ------------------------------------------------------------ party lobby
 
 const TIPS = [
-  'The best lies sound boring. Believable beats funny.',
-  'Match the style of the question: if it wants a number, give it a number.',
-  'Your first "Lie for me" each game is free. After that, lies cost points!',
-  'Fool your friends for points. Finding the truth pays too.',
-  'Points double in Round 2 and triple in the Final Edition!',
-  'Tap 👍 on lies you love: the Crowd Favourite gets an award.',
+  'The faster you tap the right answer, the more points you get.',
+  'Wrong answers cost points, so don’t just guess wildly!',
+  'Stuck? Use your Truth Detector: once per game, it leaves just two answers.',
+  'Points double in Round 2 and triple in the Final Round!',
+  'Prizes for the winner, Fastest Fingers and the longest Hot Streak.',
 ]
 
 function NowPlaying() {

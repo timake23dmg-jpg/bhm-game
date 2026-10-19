@@ -10,7 +10,6 @@ const players = [
   { id: 'c', name: 'Cat', score: 0, isAudience: false },
 ]
 const byId = Object.fromEntries(players.map((p) => [p.id, p]))
-const ctx = { players: 3, others: (authors) => players.filter((p) => !authors.includes(p.id)).length }
 
 // Every segment the host says must be one that can be prepared ahead: a fixed
 // line, a player line, or the answer.
@@ -25,7 +24,7 @@ test('listNames', () => {
 
 test('a line for every round phase, all prepared ahead', () => {
   const base = { players, round: 1, questionIndex: 0, pickerId: 'b', question: { category: 'Animals', prompt: 'A ____ can sleep for 3 years.' } }
-  for (const phase of ['INTRO', 'ROUND_TITLE', 'FINAL_TITLE', 'CATEGORY_PICK', 'LIE_ENTRY', 'PICK_TRUTH', 'SCOREBOARD']) {
+  for (const phase of ['INTRO', 'ROUND_TITLE', 'FINAL_TITLE', 'CATEGORY_PICK', 'PICK_TRUTH', 'SCOREBOARD']) {
     const line = phaseLine({ ...base, phase })
     assert.ok(line.length, phase)
     assert.ok(allPrepared(line), `${phase}: ${line}`)
@@ -40,23 +39,18 @@ test('a line for every round phase, all prepared ahead', () => {
 })
 
 test('reveal lines react to what happened', () => {
-  const lie = (pickers, extra = {}) => revealLines({ kind: 'lie', text: 'x', authors: ['a'], pickers, ...extra }, byId, false, ctx)
-  assert.deepEqual(lie(['b']).verdict, ['Gotcha, Ben!', 'Nice lie, Ana!'])
-  assert.match(lie(['b', 'c']).verdict[0], /Everyone|whole room/, 'fooled everyone who could be fooled')
-  assert.match(lie(['b'], { bought: ['a'] }).verdict[0], /bought/i)
-  assert.match(revealLines({ kind: 'lie', text: 'x', authors: ['a', 'b'], pickers: ['c'] }, byId, false, ctx).verdict[0], /same lie/)
-  assert.match(revealLines({ kind: 'decoy', text: 'y', authors: [], pickers: ['b'] }, byId, false, ctx).verdict[0], /house lie/i)
-
-  const truth = revealLines({ kind: 'truth', text: 'snail', authors: [], pickers: ['a'] }, byId, false, ctx)
-  assert.deepEqual(truth.verdict, ['snail!', 'Well done, Ana!'])
-  const detected = revealLines({ kind: 'truth', text: 'snail', authors: [], pickers: ['a', 'b'], detected: ['b'] }, byId, false, ctx)
-  assert.match(detected.verdict.join(' '), /Truth Detector/)
-  const nobody = revealLines({ kind: 'truth', text: 'snail', authors: [], pickers: [] }, byId, true, ctx)
+  const reveal = (correct, extra = {}) => revealLines({ truthText: 'snail', correct, detected: [], nobodyFound: !correct.length, ...extra }, byId)
+  const fastest = reveal(['b', 'a'])
+  assert.deepEqual(fastest.verdict, ['snail!', 'Ben was the fastest!'])
+  assert.deepEqual(reveal(['a']).verdict, ['snail!', 'Well done, Ana!'])
+  assert.match(reveal(['a', 'b', 'c']).verdict[1], /all knew|Everyone/)
+  assert.match(reveal(['b', 'a'], { detected: ['b'] }).verdict.join(' '), /Truth Detector/)
+  const nobody = reveal([])
   assert.match(nobody.verdict.join(' '), /snail/)
 
-  // Same step, same line: prepared lines must match what's said later.
-  assert.deepEqual(lie(['b', 'c']), lie(['b', 'c']))
-  for (const r of [lie(['b']), lie(['b', 'c']), truth, detected, nobody]) {
+  // Same reveal, same line: prepared lines must match what's said later.
+  assert.deepEqual(reveal(['b', 'a']), reveal(['b', 'a']))
+  for (const r of [fastest, reveal(['a']), reveal(['a', 'b', 'c']), nobody]) {
     assert.ok(allPrepared([...r.start, ...r.verdict], 'snail'), JSON.stringify(r))
   }
 })
@@ -64,7 +58,7 @@ test('reveal lines react to what happened', () => {
 test('winner, award and Truth Detector lines', () => {
   assert.equal(winnerLines([players[0]]).verdict[0], 'Ana!')
   assert.match(winnerLines(players.slice(0, 2)).start[0], /tie/i)
-  const award = awardLine({ key: 'biggestLiar', title: 'Biggest Liar', playerIds: ['a'], stat: 'Fooled 3 players' }, byId)
-  assert.deepEqual(award.slice(0, 2), ['Biggest Liar!', 'Ana!'])
+  const award = awardLine({ key: 'hotStreak', title: 'Hot Streak', playerIds: ['a'], stat: '4 correct answers in a row' }, byId)
+  assert.deepEqual(award.slice(0, 2), ['Hot Streak!', 'Ana!'])
   assert.ok(allPrepared([...award, ...winnerLines([players[0]]).start, ...lifelineLine('Ben')]))
 })

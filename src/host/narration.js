@@ -1,7 +1,7 @@
 // What the host says. Pure functions of the public game state, so the lines
-// are easy to test and tweak. The host has a personality: cheeky, quick, and
-// it reacts to what actually happened (who fooled whom, sweeps, duplicate
-// lies, bought lies, last place...).
+// are easy to test and tweak. The host has a personality: warm, quick, and
+// it reacts to what actually happened (who was fastest, clean sweeps, nobody
+// knowing, last place...).
 //
 // Everything the host says is a list of short segments, and almost every
 // segment is either a FIXED line or one of a few PLAYER lines per name. The
@@ -25,34 +25,27 @@ function seeded(seed) {
 
 const L = {
   welcome: ['Welcome to Truth Be Told! Grab your phones and join with the room code on screen.'],
-  intro: ['Welcome to Truth Be Told! Write a lie that sounds true, spot the real story, and fool your friends for points.'],
-  roundOne: ['Round one! Let the lying begin.', "Round one! Let's see who's a natural liar."],
+  intro: ['Welcome to Truth Be Told! Every question is a true story from Black history. Tap the right answer, and the faster you are, the more you score.'],
+  roundOne: ["Round one! Let's see what you know.", 'Round one! Fingers ready.'],
   randomCategory: ['Picking a random category.'],
   lowestPicks: ['Lowest score picks.'],
-  lieEntry: ['Now write a believable lie!', 'Time to lie. Make it convincing!', 'Get typing, you beautiful liars.', 'Make it boring. Boring lies win.'],
-  pickTruth: ["Pens down! Now, which one's the truth?", 'One of these is real. Which one?', 'Somewhere in there is the truth. Good luck.'],
+  pickTruth: ['Which one is true? Quick!', 'Four answers. One truth. Go!', 'Find the true story. The clock is ticking.'],
   tenSeconds: ['Ten seconds left!', 'Ten seconds. Tick tock!'],
-  gotchaTwo: ['You both fell for it!'],
-  gotchaMany: ['So many of you fell for that!', 'What a pile-up!'],
-  everyoneFooled: ['Everyone fell for that one! Diabolical.', 'The whole room got fooled!'],
-  bought: ['A bought lie, and it worked! Money well spent.'],
-  dupes: ['Two of you wrote the same lie! Great minds lie alike.'],
-  house: ['That one was our house lie! Gotcha.', 'A house lie! I wrote that one myself.'],
   truthIntro: ['And the truth is…', 'The real answer is…'],
-  allFound: ['And you all knew it. Too easy!', 'Everyone found it!'],
+  allFound: ['And you all knew it. Brilliant!', 'Everyone got it!'],
   detector: ['The Truth Detector strikes again!'],
-  nobodyFound: ['Nobody found the truth!', 'Not one of you!'],
+  nobodyFound: ['Nobody got that one!', 'Not one of you!'],
   itWas: ['It was…'],
   noPoints: ['Nobody has any points yet!'],
   tied: ["It's neck and neck at the top!"],
-  ouch: ['Ouch. Somebody went backwards.'],
-  roundTwo: ['Round two! Everything is worth double.', 'Round two! Double points. Time to get sneaky.'],
-  final: ['The Final Edition! One question, triple points. Anyone can win this.', 'The Final Edition! Triple points. This is where legends lie.'],
-  winnerIs: ['And the winner is…', 'Your champion liar is…'],
+  ouch: ['Ouch. Wrong answers cost points!'],
+  roundTwo: ['Round two! Everything is worth double.', 'Round two! Double points. Stay sharp.'],
+  final: ['The Final Round! One question, triple points. Anyone can win this.', 'The Final Round! Triple points. This is where champions are made.'],
+  winnerIs: ['And the winner is…', 'Your champion is…'],
   tie: ["It's a tie!"],
-  neverTrust: ['Never trust them again.', 'What a liar.'],
-  awards: ['Biggest Liar!', 'Truth Seeker!', 'Crowd Favourite!', 'Most Gullible!'],
-  awardQuips: ['Never lend them money.', 'Impossible to fool.', 'The people have spoken.', 'Bless.'],
+  champion: ['What a performance.', 'Take a bow.'],
+  awards: ['Fastest Fingers!', 'Hot Streak!', 'Truth Seeker!'],
+  awardQuips: ['Lightning quick.', 'Unstoppable.', 'Knowledge is power.'],
   thanks: ['Thanks for playing Truth Be Told! Play again, or head back to the lobby.'],
 }
 export const THANKS_LINE = L.thanks[0]
@@ -62,8 +55,7 @@ export const FIXED_LINES = Object.values(L).flat()
 const P = {
   pickCategory: (n) => `${n}, pick a category!`,
   leads: (n) => `${n} is in the lead!`,
-  gotcha: (n) => `Gotcha, ${n}!`,
-  niceLie: (n) => `Nice lie, ${n}!`,
+  fastest: (n) => `${n} was the fastest!`,
   wellDone: (n) => `Well done, ${n}!`,
   name: (n) => `${n}!`,
   detector: (n) => `${n} used the Truth Detector!`,
@@ -94,8 +86,6 @@ export function phaseLine(pub) {
       return [pick(L.final)]
     case 'CATEGORY_PICK':
       return categoryPickLine(pub)
-    case 'LIE_ENTRY':
-      return [pick(L.lieEntry)]
     case 'PICK_TRUTH':
       return [pick(L.pickTruth)]
     case 'SCOREBOARD':
@@ -115,7 +105,7 @@ function categoryPickLine(pub) {
 }
 
 // The question, read aloud only if the voice gets it ready in time.
-export const questionLine = (pub) => `${pub.question.category === 'Final Fakeout' ? 'The Final Edition' : pub.question.category}. ${pub.question.prompt}`
+export const questionLine = (pub) => `${pub.question.category === 'Final Fakeout' ? 'The Final Round' : pub.question.category}. ${pub.question.prompt}`
 // The answer word, prepared as soon as the question is drawn.
 export const answerLine = (answer) => `${answer}!`
 export const tenSecondsLine = () => [pick(L.tenSeconds)]
@@ -132,48 +122,33 @@ export function scoreboardLine(pub) {
   return lines
 }
 
-// Two beats per reveal step: `start` when the card appears, `verdict` when
-// it's stamped. `ctx`: { players: how many could pick, others(authors): how
-// many could have been fooled by a lie }.
-export function revealLines(step, players, nobodyFound, ctx = {}) {
-  const pick = seeded(`${step.kind}|${step.text}|${step.pickers.join()}`)
+// Two beats for the reveal: `start` as the answer counts come up, `verdict`
+// when the truth is shown. `reveal` is the engine's public reveal.
+export function revealLines(reveal, players) {
   const name = (id) => players[id]?.name
-  const count = step.pickers.length
-  if (step.kind === 'truth') {
-    if (nobodyFound) return { start: [], verdict: [pick(L.nobodyFound), L.itWas[0], answerLine(step.text)] }
-    const everyone = ctx.players && count >= ctx.players
-    const detected = (step.detected || []).filter((id) => step.pickers.includes(id))
-    const reaction = everyone
-      ? [pick(L.allFound)]
-      : detected.length
-        ? [L.detector[0]]
-        : count === 1 && name(step.pickers[0])
-          ? [P.wellDone(name(step.pickers[0]))]
+  const total = Object.values(players).filter((p) => !p.isAudience).length
+  if (reveal.nobodyFound) return { start: [], verdict: [L.nobodyFound[0], L.itWas[0], answerLine(reveal.truthText)] }
+  const pick = seeded(`${reveal.truthText}|${reveal.correct.join()}`)
+  const fastest = name(reveal.correct[0])
+  const reaction = total > 1 && reveal.correct.length >= total
+    ? [pick(L.allFound)]
+    : reveal.detected?.includes(reveal.correct[0])
+      ? [L.detector[0]]
+      : reveal.correct.length === 1 && fastest
+        ? [P.wellDone(fastest)]
+        : fastest
+          ? [P.fastest(fastest)]
           : []
-    return { start: [pick(L.truthIntro)], verdict: [answerLine(step.text), ...reaction] }
-  }
-  if (step.kind === 'decoy') return { start: [], verdict: [pick(L.house)] }
-
-  const author = step.authors.length === 1 ? name(step.authors[0]) : null
-  const credit = author ? [P.niceLie(author)] : []
-  if (step.authors.length > 1) return { start: [], verdict: [L.dupes[0]] }
-  if (!count) return { start: [], verdict: credit }
-  if (step.bought?.length) return { start: [], verdict: [L.bought[0]] }
-  const possible = ctx.others ? ctx.others(step.authors) : 0
-  if (possible > 1 && count >= possible) return { start: [], verdict: [pick(L.everyoneFooled), ...credit] }
-  if (count >= 3) return { start: [], verdict: [pick(L.gotchaMany), ...credit] }
-  if (count === 2) return { start: [], verdict: [L.gotchaTwo[0], ...credit] }
-  const fooled = name(step.pickers[0])
-  return { start: [], verdict: [...(fooled ? [P.gotcha(fooled)] : []), ...credit] }
+  return { start: [pick(L.truthIntro)], verdict: [answerLine(reveal.truthText), ...reaction] }
 }
 
 export function winnerLines(winners) {
   if (winners.length > 1) return { start: [L.tie[0]], verdict: winners.map((w) => P.name(w.name)) }
   const pick = seeded(winners[0]?.name)
-  return { start: [pick(L.winnerIs)], verdict: [P.name(winners[0].name), pick(L.neverTrust)] }
+  return { start: [pick(L.winnerIs)], verdict: [P.name(winners[0].name), pick(L.champion)] }
 }
 
-const AWARD_KEYS = ['biggestLiar', 'truthSeeker', 'crowdFavourite', 'mostGullible']
+const AWARD_KEYS = ['fastestFingers', 'hotStreak', 'truthSeeker']
 
 export function awardLine(award, players) {
   const i = AWARD_KEYS.indexOf(award.key)

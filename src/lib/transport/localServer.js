@@ -134,7 +134,7 @@ export class LocalServer {
     const mine = (r) => r.gameCode === code && r.questionNo === questionNo
     return {
       lies: this.db.lies.filter(mine).map((r) => ({ playerId: r.playerId, text: r.text })),
-      picks: this.db.picks.filter(mine).map((r) => ({ playerId: r.playerId, optionId: r.optionId })),
+      picks: this.db.picks.filter(mine).map((r) => ({ playerId: r.playerId, optionId: r.optionId, at: r.at })),
       likes: this.db.likes.filter(mine).map((r) => ({ playerId: r.playerId, optionId: r.optionId })),
       // "Lie for me" suggestions handed out this question: { playerId: [text] }
       handouts: g.questionNo === questionNo ? JSON.parse(JSON.stringify(this.db.secrets[code].handouts || {})) : {},
@@ -272,8 +272,9 @@ export class LocalServer {
     if (g.phase !== 'PICK_TRUTH' || g.questionNo !== questionNo) return { ok: false, reason: 'closed' }
     if (!(g.state.options || []).some((o) => o.id === optionId)) return { ok: false, reason: 'badOption' }
     if (this.db.picks.some((r) => r.gameCode === g.code && r.questionNo === questionNo && r.playerId === p.id)) return { ok: true }
-    this.db.picks.push({ gameCode: g.code, questionNo, playerId: p.id, optionId })
-    this.emit('picks', g.code, { playerId: p.id, optionId, questionNo })
+    const at = this.now()
+    this.db.picks.push({ gameCode: g.code, questionNo, playerId: p.id, optionId, at })
+    this.emit('picks', g.code, { playerId: p.id, optionId, questionNo, at })
     return { ok: true }
   }
 

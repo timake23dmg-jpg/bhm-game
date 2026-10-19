@@ -11,9 +11,8 @@ import { setLobbyMusic, primeLobbyMusic } from '../lib/lobbyMusic.js'
 import {
   phaseLine, questionLine, answerLine, revealLines, winnerLines, awardLine, lifelineLine, tenSecondsLine, playerLines, FIXED_LINES,
 } from './narration.js'
-import { revealContext } from './revealContext.js'
 import {
-  LobbyScreen, IntroScreen, RoundTitleScreen, CategoryPickScreen, QuestionScreen, LieEntryScreen,
+  LobbyScreen, IntroScreen, RoundTitleScreen, CategoryPickScreen, QuestionScreen,
   PickTruthScreen, RevealScreen, ScoreboardScreen,
 } from './HostScreens.jsx'
 import { WinnerScreen, AwardsScreen } from './EndScreens.jsx'
@@ -230,10 +229,8 @@ export default function HostApp() {
       if (answer) prepareLines([answerLine(answer)], { priority: 1 })
     } else if (pub.phase === 'REVEAL') {
       const players = Object.fromEntries(pub.players.map((p) => [p.id, p]))
-      for (const step of pub.reveal.steps) {
-        const l = revealLines(step, players, pub.reveal.nobodyFound, revealContext(pub))
-        prepareLines([...l.start, ...l.verdict], { priority: 1 })
-      }
+      const l = revealLines(pub.reveal, players)
+      prepareLines([...l.start, ...l.verdict], { priority: 1 })
     } else if (pub.phase === 'WINNER') {
       const players = Object.fromEntries(pub.players.map((p) => [p.id, p]))
       const winners = (pub.winners || []).map((id) => players[id]).filter(Boolean)
@@ -247,8 +244,8 @@ export default function HostApp() {
       return
     }
     const line = phaseLine(pub)
-    // The lie prompt waits for the question to finish being read.
-    if (line.length) narrate(line, { queue: pub.phase === 'LIE_ENTRY' })
+    // "Which one is true?" waits for the question to finish being read.
+    if (line.length) narrate(line, { queue: pub.phase === 'PICK_TRUTH' })
     else if (pub.phase !== 'REVEAL' && pub.phase !== 'WINNER' && pub.phase !== 'AWARDS') stopNarration()
   }, [phaseKey])
 
@@ -266,8 +263,8 @@ export default function HostApp() {
     }
   }, [lifelineKey])
 
-  // "Ten seconds left!" while players are still writing or picking.
-  const waitingOn = pub?.phase === 'LIE_ENTRY' ? pub.submitted : pub?.phase === 'PICK_TRUTH' ? pub.picked : null
+  // "Ten seconds left!" while players are still answering.
+  const waitingOn = pub?.phase === 'PICK_TRUTH' ? pub.picked : null
   const allIn = !!waitingOn && pub.players.filter((p) => !p.isAudience && p.connected).every((p) => waitingOn.includes(p.id))
   useEffect(() => {
     if (!narrating || !waitingOn || allIn || pub.deadline == null) return
@@ -291,7 +288,7 @@ export default function HostApp() {
     return (
       <div className="center-fill host-start">
         <Wordmark />
-        <p className="tagline">Lie. Spot. Win.</p>
+        <p className="tagline">Know it. Tap it. Win it.</p>
         <button className="btn btn-pink btn-xl" disabled={!transport || busy} onClick={createRoom}>
           {transport ? (busy ? 'Creating room…' : '📺 Create a room') : 'Connecting…'}
         </button>
@@ -317,7 +314,6 @@ export default function HostApp() {
     FINAL_TITLE: <RoundTitleScreen {...props} final />,
     CATEGORY_PICK: <CategoryPickScreen {...props} />,
     QUESTION: <QuestionScreen {...props} />,
-    LIE_ENTRY: <LieEntryScreen {...props} />,
     PICK_TRUTH: <PickTruthScreen {...props} />,
     REVEAL: <RevealScreen {...props} />,
     SCOREBOARD: <ScoreboardScreen {...props} />,

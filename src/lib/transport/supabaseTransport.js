@@ -124,7 +124,7 @@ export function createSupabaseHostTransport({ url, anonKey }) {
         .on('postgres_changes', { event: 'INSERT', schema: DB_SCHEMA, table: 'lies', filter: `game_code=eq.${code}` },
           ({ new: r }) => onLie?.({ playerId: r.player_id, text: r.text, questionNo: r.question_no }))
         .on('postgres_changes', { event: 'INSERT', schema: DB_SCHEMA, table: 'picks', filter: `game_code=eq.${code}` },
-          ({ new: r }) => onPick?.({ playerId: r.player_id, optionId: r.option_id, questionNo: r.question_no }))
+          ({ new: r }) => onPick?.({ playerId: r.player_id, optionId: r.option_id, questionNo: r.question_no, at: Date.parse(r.created_at) }))
         .on('postgres_changes', { event: 'INSERT', schema: DB_SCHEMA, table: 'commands', filter: `game_code=eq.${code}` },
           ({ new: r }) => baseline.then(() => deliver(r)))
       // Who's online comes from phones' heartbeats (see heartbeat() in schema.sql),
@@ -177,13 +177,13 @@ export function createSupabaseHostTransport({ url, anonKey }) {
     async fetchRoundRows(code, questionNo) {
       const q = (table, cols) => supabase.from(table).select(cols).eq('game_code', code).eq('question_no', questionNo)
       const [lies, picks, likes, secrets] = await Promise.all([
-        q('lies', 'player_id, text'), q('picks', 'player_id, option_id'), q('likes', 'player_id, option_id'),
+        q('lies', 'player_id, text'), q('picks', 'player_id, option_id, created_at'), q('likes', 'player_id, option_id'),
         supabase.from('game_secrets').select('lie_handouts, handouts_question_no, lifelines, lifelines_question_no').eq('code', code).maybeSingle(),
       ])
       const sec = unwrap(secrets)
       return {
         lies: unwrap(lies).map((r) => ({ playerId: r.player_id, text: r.text })),
-        picks: unwrap(picks).map((r) => ({ playerId: r.player_id, optionId: r.option_id })),
+        picks: unwrap(picks).map((r) => ({ playerId: r.player_id, optionId: r.option_id, at: Date.parse(r.created_at) })),
         likes: unwrap(likes).map((r) => ({ playerId: r.player_id, optionId: r.option_id })),
         // "Lie for me" suggestions handed out this question: { playerId: [text] }
         handouts: sec?.handouts_question_no === questionNo ? sec.lie_handouts || {} : {},

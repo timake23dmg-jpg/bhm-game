@@ -1,18 +1,20 @@
-// Timings and scoring from the Fakeout spec.
+// Timings and scoring. Truth Be Told is a speed quiz: read the question, then
+// tap the true answer out of four. Faster correct answers score more.
 
 export const TIMERS = {
   INTRO: 8000,
   ROUND_TITLE: 3000,
-  CATEGORY_PICK: 15000,
-  QUESTION: 5000,
+  CATEGORY_PICK: 10000,
+  QUESTION: 4000, // time to read the question before the answers appear
   LIE_ENTRY: 45000,
   LIE_ENTRY_FINAL: 60000,
-  PICK_TRUTH: 20000,
+  PICK_TRUTH: 15000,
   SCOREBOARD: 6000,
   FINAL_TITLE: 4000,
   WINNER: 8000,
   AWARD_CARD: 3000,
-  WANTED_CARD: 8000, // the Biggest Liar's WANTED poster stays up longer
+  WANTED_CARD: 8000, // the Biggest Liar's WANTED poster stays up longer (lie mode only)
+  QUIZ_REVEAL: 7000, // answer counts, then the truth, then the fastest fingers
 }
 
 // How long each award card stays on screen, and all of them together.
@@ -21,7 +23,24 @@ export const awardsDuration = (awards) => (awards || []).reduce((t, a) => t + aw
 
 export const REVEAL_TIMING = { LEAD_IN: 600, LIE: 3500, PER_FOOL: 400, TRUTH: 4000, NOBODY: 3000, TAIL: 800 }
 
-// index = round - 1 (round 3 is the Final)
+// Quiz scoring, index = round - 1 (round 3 is the Final). A correct answer is
+// worth between `slowest` and `fastest` points, depending on how quickly it
+// came in; a wrong answer costs `wrong`; no answer scores nothing.
+export const QUIZ_SCORES = {
+  fastest: [1000, 2000, 3000],
+  slowest: [500, 1000, 1500],
+  wrong: [-100, -200, -300],
+}
+export const OPTIONS_PER_QUESTION = 4 // the truth + 3 wrong answers
+export const LETTERS = ['A', 'B', 'C', 'D'] // answer labels, the same on the TV and phones
+// Points for a correct answer given `ms` after the answers appeared.
+export function quizPoints(round, ms, windowMs = TIMERS.PICK_TRUTH) {
+  const m = Math.min(2, Math.max(0, round - 1))
+  const late = Math.min(1, Math.max(0, ms / windowMs))
+  return Math.round(QUIZ_SCORES.fastest[m] - (QUIZ_SCORES.fastest[m] - QUIZ_SCORES.slowest[m]) * late)
+}
+
+// Lie-mode scoring (Option A, kept on the option-a-lies branch).
 export const SCORES = {
   truth: [1000, 2000, 3000],
   fool: [500, 1000, 1500],
@@ -39,12 +58,17 @@ export const MIN_OPTIONS = 4 // truth + at least 3 lies (padded with house decoy
 
 export function questionsInRound(round, shortGame) {
   if (round === 3) return 1
-  return shortGame ? 2 : 3
+  return shortGame ? 3 : 5
 }
 
+// Prizes beyond the overall winner. `best` picks the winning value from the
+// players' stats (higher is better unless `lowest`); `min` is the least a
+// player needs to qualify.
 export const AWARDS = [
-  { key: 'biggestLiar', title: 'Biggest Liar', stat: 'fooled', label: (n) => `Fooled ${n} player${n === 1 ? '' : 's'}` },
-  { key: 'truthSeeker', title: 'Truth Seeker', stat: 'truths', label: (n) => `Found the truth ${n} time${n === 1 ? '' : 's'}` },
-  { key: 'crowdFavourite', title: 'Crowd Favourite', stat: 'likes', label: (n) => `${n} like${n === 1 ? '' : 's'}` },
-  { key: 'mostGullible', title: 'Most Gullible', stat: 'gotFooled', label: (n) => `Fooled ${n} time${n === 1 ? '' : 's'}` },
+  {
+    key: 'fastestFingers', title: 'Fastest Fingers', stat: 'avgCorrectMs', lowest: true, minCorrect: 3,
+    label: (ms) => `Average ${(ms / 1000).toFixed(1)} seconds per correct answer`,
+  },
+  { key: 'hotStreak', title: 'Hot Streak', stat: 'bestStreak', min: 3, label: (n) => `${n} correct answers in a row` },
+  { key: 'truthSeeker', title: 'Truth Seeker', stat: 'truths', min: 1, label: (n) => `Found the truth ${n} time${n === 1 ? '' : 's'}` },
 ]
