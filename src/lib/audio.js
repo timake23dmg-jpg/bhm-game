@@ -447,17 +447,16 @@ function playStep(song, out, step, t, sixteenth) {
 // resumes where it left off, so short phases don't keep restarting it.
 // Music by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.
 
-// The Ink & Lies soundtrack: 70s cop-show funk and film-noir jazz.
+// The Truth Be Told soundtrack: swing and jazz, all the way through.
 const TRACKS = {
-  lobby: 'music/lobby.mp3', // "Hard Boiled"
-  news: 'music/news.mp3', // "News Theme"
-  sting: 'music/sting.mp3', // "NewsSting"
-  bounce: 'music/bounce.mp3', // "Private Eye"
-  think: 'music/think.mp3', // "Covert Affair"
-  tense: 'music/tense.mp3', // "Dances and Dames"
-  victory: 'music/victory.mp3', // "Hot Swing"
+  lobby: 'music/lobby.mp3', // "Hep Cats": upbeat swing while people join
+  news: 'music/news.mp3', // "Vibe Ace": the intro
+  sting: 'music/news.mp3', // "Vibe Ace" again, from the top, for round titles
+  bounce: 'music/bounce.mp3', // "Cool Vibes": category spin, question, leaderboard
+  tense: 'music/tense.mp3', // "Bass Walker": walking bass while players answer
+  victory: 'music/victory.mp3', // "Hot Swing": winner and prizes
 }
-// Short news stings always start from the top (the rest resume where they left off).
+// The intro and round titles always start from the top (the rest resume where they left off).
 const FROM_TOP = new Set(['news', 'sting'])
 const TRACK_LEVEL = 1.6 // matches the procedural songs' loudness
 const fetched = {} // name -> Promise<ArrayBuffer>
