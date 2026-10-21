@@ -7,7 +7,11 @@
 
 import assert from 'node:assert/strict'
 import { createClient } from '@supabase/supabase-js'
+import { readFileSync } from 'node:fs'
 import { HostEngine } from '../src/engine/hostEngine.js'
+
+// The live bank must match src/data/questions.json (run supabase/questions.sql after editing it).
+const BANK = new Map(JSON.parse(readFileSync(new URL('../src/data/questions.json', import.meta.url), 'utf8')).map((q) => [q.id, q]))
 
 const url = process.env.VITE_SUPABASE_URL
 const key = process.env.VITE_SUPABASE_ANON_KEY
@@ -130,6 +134,9 @@ async function main() {
     assert.equal(pick.options.length, 4)
     assert.ok(!JSON.stringify(pick).includes('isTruth'), 'truth flag must not be public before reveal')
     const truthId = engine.s.current.options.find((o) => o.isTruth).id
+    const drawn = engine.s.current.question
+    assert.equal(BANK.get(drawn.id)?.prompt, drawn.prompt, `live question ${drawn.id} is not in questions.json: run supabase/questions.sql`)
+    console.log(`  [${drawn.category}] ${drawn.prompt} -> ${drawn.answer}`)
     if (n === 0) {
       // Truth Detector: keeps the truth and one other option, once per game.
       const det = ok(await ana.sb.rpc('use_lifeline', { p_code: code, p_question_no: qn }))
